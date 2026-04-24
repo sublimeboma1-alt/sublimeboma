@@ -1,0 +1,646 @@
+{% extends 'noyau/base.html' %}
+{% load static %}
+
+{% block title %}Comparaison MASP - Statut des paiements - Complexe Scolaire Sublime{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Styles spécifiques pour la page de comparaison MASP */
+    .stats-card {
+        border-radius: 20px;
+        transition: all 0.3s ease;
+        overflow: hidden;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+    }
+    
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .bg-gradient-success {
+        background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+    }
+    
+    .bg-gradient-danger {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    
+    .bg-gradient-info {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+    
+    .bg-gradient-warning {
+        background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+    }
+    
+    .bg-white-20 {
+        background-color: rgba(255, 255, 255, 0.2);
+    }
+    
+    .bg-white-30 {
+        background-color: rgba(255, 255, 255, 0.3);
+    }
+    
+    .table-danger-bg {
+        background-color: #fff5f5;
+        border-left: 4px solid #dc2626;
+    }
+    
+    .table-success-bg {
+        background-color: #f0fff4;
+        border-left: 4px solid #10b981;
+    }
+    
+    .badge-en-ordre {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        padding: 8px 16px;
+        border-radius: 30px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .badge-non-ordre {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        padding: 8px 16px;
+        border-radius: 30px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .filter-date-section {
+        background: #f8fafc;
+        border-radius: 16px;
+        padding: 1rem;
+        margin-top: 1rem;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .hover-lift {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .hover-lift:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+    }
+    
+    @media print {
+        .btn, form, .card-header .btn, .no-print {
+            display: none !important;
+        }
+        .card {
+            border: 1px solid #ddd !important;
+            box-shadow: none !important;
+            break-inside: avoid;
+        }
+        .table-danger-bg, .table-success-bg {
+            background: none !important;
+            border-left: none !important;
+        }
+        body {
+            background: white;
+            padding: 20px;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .stats-card .card-body {
+            padding: 1rem;
+        }
+        .stats-card h3 {
+            font-size: 1.5rem;
+        }
+        .table-responsive {
+            font-size: 0.75rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-gradient-primary text-white shadow-lg border-0">
+                <div class="card-body py-4">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap">
+                        <div>
+                            <h2 class="mb-0 fw-bold">
+                                <i class="fas fa-hand-holding-heart me-2"></i> Contrôle MASP
+                            </h2>
+                            <p class="mb-0 mt-2 opacity-75">
+                                <i class="fas fa-calendar-alt me-1"></i> Année scolaire: <strong>{{ annee_active.annee }}</strong>
+                                <span class="mx-2">|</span>
+                                <i class="fas fa-clock me-1"></i> Généré le: {{ date_generation|date:"d/m/Y H:i" }}
+                                <span class="mx-2">|</span>
+                                <i class="fas fa-chart-line me-1"></i> Vérification des paiements MASP
+                            </p>
+                        </div>
+                        <div class="btn-group mt-3 mt-md-0 no-print">
+                            <button type="button" class="btn btn-light shadow-sm" onclick="window.location.href='{% url 'frais_scolaire:export_comparaison_masp_excel' %}?{{ request.GET.urlencode }}'">
+                                <i class="fas fa-file-excel me-1 text-success"></i> Excel
+                            </button>
+                            <button type="button" class="btn btn-light shadow-sm" onclick="window.location.href='{% url 'frais_scolaire:export_comparaison_masp_pdf' %}?{{ request.GET.urlencode }}'">
+                                <i class="fas fa-file-pdf me-1 text-danger"></i> PDF
+                            </button>
+                            <button class="btn btn-light shadow-sm" onclick="window.print()">
+                                <i class="fas fa-print me-1"></i> Imprimer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulaire de comparaison avec filtres date -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-primary text-white py-3">
+                    <h5 class="mb-0 fw-bold">
+                        <i class="fas fa-filter me-2"></i> Paramètres de comparaison
+                    </h5>
+                </div>
+                <div class="card-body bg-light">
+                    <form method="get" class="row g-3" id="filterForm">
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-money-bill-wave me-1"></i> Montant de référence
+                            </label>
+                            <input type="number" name="montant_reference" class="form-control shadow-sm" 
+                                   value="{{ montant_reference }}" step="1000" 
+                                   placeholder="Ex: 50000">
+                            <small class="text-muted">Montant minimum pour être "en ordre"</small>
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-layer-group me-1"></i> Niveau
+                            </label>
+                            <select name="niveau" class="form-select shadow-sm">
+                                <option value="">🌍 Tous</option>
+                                <option value="maternel" {% if niveau_filter == 'maternel' %}selected{% endif %}>🍼 Maternel</option>
+                                <option value="primaire" {% if niveau_filter == 'primaire' %}selected{% endif %}>📚 Primaire</option>
+                                <option value="humanite" {% if niveau_filter == 'humanite' %}selected{% endif %}>🎓 Humanité</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-graduation-cap me-1"></i> Classe
+                            </label>
+                            <select name="classe" class="form-select shadow-sm">
+                                <option value="">🏫 Toutes</option>
+                                <optgroup label="🍼 Maternel">
+                                    {% for value, label in classes_maternel %}
+                                        <option value="{{ value }}" {% if classe_filter == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                                <optgroup label="📚 Primaire">
+                                    {% for value, label in classes_primaire %}
+                                        <option value="{{ value }}" {% if classe_filter == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                                <optgroup label="🎓 Humanité">
+                                    {% for value, label in classes_humanite %}
+                                        <option value="{{ value }}" {% if classe_filter == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-chart-simple me-1"></i> Trimestre
+                            </label>
+                            <select name="trimestre" class="form-select shadow-sm">
+                                <option value="">📅 Tous</option>
+                                <option value="1" {% if trimestre_filter == '1' %}selected{% endif %}>🥇 1er Trimestre</option>
+                                <option value="2" {% if trimestre_filter == '2' %}selected{% endif %}>🥈 2ème Trimestre</option>
+                                <option value="3" {% if trimestre_filter == '3' %}selected{% endif %}>🥉 3ème Trimestre</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-3 d-flex align-items-end">
+                            <div class="d-grid gap-2 w-100">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-search me-2"></i> Vérifier
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Section des filtres de date -->
+                        <div class="col-12">
+                            <div class="filter-date-section">
+                                <div class="row g-3">
+                                    <div class="col-md-12 mb-2">
+                                        <strong><i class="fas fa-calendar-alt text-primary me-2"></i>Filtres par date de paiement</strong>
+                                        <button type="button" class="btn btn-sm btn-link text-primary float-end" id="resetDatesBtn">
+                                            <i class="fas fa-times me-1"></i> Réinitialiser les dates
+                                        </button>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-bold">
+                                            <i class="fas fa-calendar-day me-1"></i> Date de début
+                                        </label>
+                                        <input type="date" name="date_debut" class="form-control shadow-sm" 
+                                               value="{{ date_debut_filter|default:'' }}">
+                                        <small class="text-muted">Paiements après cette date</small>
+                                    </div>
+                                    
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-bold">
+                                            <i class="fas fa-calendar-week me-1"></i> Date de fin
+                                        </label>
+                                        <input type="date" name="date_fin" class="form-control shadow-sm" 
+                                               value="{{ date_fin_filter|default:'' }}">
+                                        <small class="text-muted">Paiements avant cette date</small>
+                                    </div>
+                                    
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-bold">
+                                            <i class="fas fa-clock me-1"></i> Période spécifique
+                                        </label>
+                                        <select name="periode" class="form-select shadow-sm" id="periodeSelect">
+                                            <option value="">📅 Personnalisée</option>
+                                            <option value="aujourdhui" {% if periode_filter == 'aujourdhui' %}selected{% endif %}>📆 Aujourd'hui</option>
+                                            <option value="hier" {% if periode_filter == 'hier' %}selected{% endif %}>⬅️ Hier</option>
+                                            <option value="semaine" {% if periode_filter == 'semaine' %}selected{% endif %}>📊 Cette semaine</option>
+                                            <option value="semaine_derniere" {% if periode_filter == 'semaine_derniere' %}selected{% endif %}>⬅️ Semaine dernière</option>
+                                            <option value="mois" {% if periode_filter == 'mois' %}selected{% endif %}>📈 Ce mois</option>
+                                            <option value="mois_dernier" {% if periode_filter == 'mois_dernier' %}selected{% endif %}>⬅️ Mois dernier</option>
+                                            <option value="trimestre" {% if periode_filter == 'trimestre' %}selected{% endif %}>📉 Ce trimestre</option>
+                                            <option value="annee" {% if periode_filter == 'annee' %}selected{% endif %}>📅 Cette année</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-bold">
+                                            <i class="fas fa-hourglass-half me-1"></i> Période glissante
+                                        </label>
+                                        <select name="periode_glissante" class="form-select shadow-sm">
+                                            <option value="">📊 Aucune</option>
+                                            <option value="7" {% if periode_glissante == '7' %}selected{% endif %}>📆 7 derniers jours</option>
+                                            <option value="15" {% if periode_glissante == '15' %}selected{% endif %}>📊 15 derniers jours</option>
+                                            <option value="30" {% if periode_glissante == '30' %}selected{% endif %}>📈 30 derniers jours</option>
+                                            <option value="60" {% if periode_glissante == '60' %}selected{% endif %}>📉 60 derniers jours</option>
+                                            <option value="90" {% if periode_glissante == '90' %}selected{% endif %}>📅 90 derniers jours</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <!-- Indicateur de filtre date actif -->
+                                {% if date_debut_filter or date_fin_filter or periode_filter or periode_glissante %}
+                                <div class="alert alert-info alert-dismissible fade show mt-3 mb-0 py-2" role="alert">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Filtre date actif :</strong>
+                                    {% if date_debut_filter %} À partir du {{ date_debut_filter|date:"d/m/Y" }}{% endif %}
+                                    {% if date_fin_filter %} jusqu'au {{ date_fin_filter|date:"d/m/Y" }}{% endif %}
+                                    {% if periode_filter %} Période : 
+                                        {% if periode_filter == 'aujourdhui' %}Aujourd'hui
+                                        {% elif periode_filter == 'hier' %}Hier
+                                        {% elif periode_filter == 'semaine' %}Cette semaine
+                                        {% elif periode_filter == 'semaine_derniere' %}Semaine dernière
+                                        {% elif periode_filter == 'mois' %}Ce mois
+                                        {% elif periode_filter == 'mois_dernier' %}Mois dernier
+                                        {% elif periode_filter == 'trimestre' %}Ce trimestre
+                                        {% elif periode_filter == 'annee' %}Cette année
+                                        {% endif %}
+                                    {% endif %}
+                                    {% if periode_glissante %} {{ periode_glissante }} derniers jours{% endif %}
+                                    <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert" aria-label="Fermer" id="clearDateAlert"></button>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Résumé des indicateurs -->
+    <div class="row mb-4 g-4">
+        <div class="col-md-3 col-sm-6">
+            <div class="stats-card card border-0 shadow-lg bg-gradient-primary text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-users fa-3x mb-2 opacity-75"></i>
+                    <h3 class="mb-0 fw-bold">{{ total_eleves }}</h3>
+                    <small>Élèves MASP</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="stats-card card border-0 shadow-lg bg-gradient-success text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-check-circle fa-3x mb-2 opacity-75"></i>
+                    <h3 class="mb-0 fw-bold">{{ nb_en_ordre }}</h3>
+                    <small>En ordre</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="stats-card card border-0 shadow-lg bg-gradient-danger text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-times-circle fa-3x mb-2 opacity-75"></i>
+                    <h3 class="mb-0 fw-bold">{{ nb_non_en_ordre }}</h3>
+                    <small>Non en ordre</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="stats-card card border-0 shadow-lg bg-gradient-info text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-chart-line fa-3x mb-2 opacity-75"></i>
+                    <h3 class="mb-0 fw-bold">{{ taux_en_ordre|floatformat:1 }}%</h3>
+                    <small>Taux de conformité</small>
+                    <div class="progress mt-2 bg-white-30" style="height: 6px; border-radius: 10px;">
+                        <div class="progress-bar bg-white" role="progressbar" style="width: {{ taux_en_ordre }}%; border-radius: 10px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Résumé financier -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-lg">
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-4">
+                            <div class="border-end">
+                                <small class="text-muted text-uppercase">Total attendu</small>
+                                <h4 class="mb-0 text-primary">{{ total_attendu_global|floatformat:0 }} FC</h4>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="border-end">
+                                <small class="text-muted text-uppercase">Total payé</small>
+                                <h4 class="mb-0 text-success">{{ total_paye_global|floatformat:0 }} FC</h4>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted text-uppercase">Solde global</small>
+                            <h4 class="mb-0 text-danger">{{ solde_global|floatformat:0 }} FC</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tableau des résultats -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-dark text-white py-3">
+                    <h5 class="mb-0 fw-bold">
+                        <i class="fas fa-list me-2"></i> Détail des élèves MASP
+                        {% if montant_reference > 0 %}
+                            <span class="badge bg-warning text-dark ms-2">Référence: {{ montant_reference|floatformat:0 }} FC</span>
+                        {% endif %}
+                        {% if date_debut_filter or date_fin_filter or periode_filter or periode_glissante %}
+                            <span class="badge bg-info ms-2">
+                                <i class="fas fa-calendar-alt me-1"></i> Période filtrée
+                            </span>
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" id="resultTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="text-center">#</th>
+                                    <th>Matricule</th>
+                                    <th>Nom complet</th>
+                                    <th>Classe</th>
+                                    <th class="text-end">Total attendu</th>
+                                    <th class="text-end">Total payé</th>
+                                    <th class="text-center">Statut</th>
+                                    <th class="text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in resultats %}
+                                <tr class="{% if not item.est_en_ordre %}table-danger-bg{% else %}table-success-bg{% endif %} hover-lift">
+                                    <td class="text-center fw-bold">{{ forloop.counter }}</td>
+                                    <td><code>{{ item.eleve.matricule }}</code></td>
+                                    <td>
+                                        <strong>{{ item.eleve.nom }} {{ item.eleve.post_nom }}</strong>
+                                        <br>
+                                        <small class="text-muted">{{ item.eleve.prenom }}</small>
+                                        {% if item.eleve.telephone %}
+                                            <br>
+                                            <small class="text-muted">
+                                                <i class="fas fa-phone fa-xs"></i> {{ item.eleve.telephone }}
+                                            </small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ item.eleve.classe|default:"-" }}</span>
+                                    </td>
+                                    <td class="text-end fw-bold">{{ item.total_attendu|floatformat:0 }} FC</td>
+                                    <td class="text-end fw-bold text-success">{{ item.total_paye|floatformat:0 }} FC</td>
+                                    <td class="text-center">
+                                        {% if item.est_en_ordre %}
+                                            <span class="badge-en-ordre">
+                                                <i class="fas fa-check-circle me-1"></i> EN ORDRE
+                                            </span>
+                                            <br>
+                                            <small class="text-success mt-1 d-inline-block">
+                                                <i class="fas fa-arrow-up me-1"></i>+{{ item.difference|floatformat:0 }} FC
+                                            </small>
+                                        {% else %}
+                                            <span class="badge-non-ordre">
+                                                <i class="fas fa-times-circle me-1"></i> NON EN ORDRE
+                                            </span>
+                                            <br>
+                                            <small class="text-danger mt-1 d-inline-block">
+                                                <i class="fas fa-arrow-down me-1"></i>Manque: {{ item.difference|floatformat:0 }} FC
+                                            </small>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        <a href="{% url 'frais_scolaire:enregistrer_paiement' item.eleve.id %}" 
+                                           class="btn btn-sm btn-primary rounded-pill px-3 no-print">
+                                            <i class="fas fa-money-bill-wave me-1"></i> Payer
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" class="text-center py-5">
+                                        <i class="fas fa-inbox fa-4x text-muted mb-3 d-block"></i>
+                                        <h5 class="text-muted">Aucun élève MASP trouvé</h5>
+                                        <p class="text-muted small">Aucun élève ne correspond aux critères de recherche</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% if resultats %}
+                <div class="card-footer bg-light">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <div class="d-flex flex-wrap gap-4">
+                                <div>
+                                    <small class="text-muted">Total attendu</small>
+                                    <strong class="d-block">{{ total_attendu_global|floatformat:0 }} FC</strong>
+                                </div>
+                                <div>
+                                    <small class="text-muted">Total payé</small>
+                                    <strong class="d-block text-success">{{ total_paye_global|floatformat:0 }} FC</strong>
+                                </div>
+                                <div>
+                                    <small class="text-muted">Solde global</small>
+                                    <strong class="d-block text-danger">{{ solde_global|floatformat:0 }} FC</strong>
+                                </div>
+                                <div>
+                                    <small class="text-muted">Taux recouvrement</small>
+                                    <strong class="d-block">{{ taux_recouvrement|floatformat:1 }}%</strong>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-md-end mt-3 mt-md-0 no-print">
+                            <button class="btn btn-secondary btn-sm" onclick="window.print()">
+                                <i class="fas fa-print me-1"></i> Imprimer
+                            </button>
+                            <button class="btn btn-success btn-sm" id="exportCSV">
+                                <i class="fas fa-file-csv me-1"></i> CSV
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Gestion des dates : période prédéfinie
+    const periodeSelect = document.getElementById('periodeSelect');
+    const dateDebutInput = document.querySelector('input[name="date_debut"]');
+    const dateFinInput = document.querySelector('input[name="date_fin"]');
+    
+    if (periodeSelect) {
+        periodeSelect.addEventListener('change', function() {
+            const today = new Date();
+            const formatDate = (date) => date.toISOString().split('T')[0];
+            
+            switch(this.value) {
+                case 'aujourdhui':
+                    dateDebutInput.value = formatDate(today);
+                    dateFinInput.value = formatDate(today);
+                    break;
+                case 'hier':
+                    const yesterday = new Date(today);
+                    yesterday.setDate(today.getDate() - 1);
+                    dateDebutInput.value = formatDate(yesterday);
+                    dateFinInput.value = formatDate(yesterday);
+                    break;
+                case 'semaine':
+                    const weekStart = new Date(today);
+                    weekStart.setDate(today.getDate() - today.getDay());
+                    dateDebutInput.value = formatDate(weekStart);
+                    dateFinInput.value = formatDate(today);
+                    break;
+                case 'semaine_derniere':
+                    const lastWeekStart = new Date(today);
+                    lastWeekStart.setDate(today.getDate() - today.getDay() - 7);
+                    const lastWeekEnd = new Date(lastWeekStart);
+                    lastWeekEnd.setDate(lastWeekStart.getDate() + 6);
+                    dateDebutInput.value = formatDate(lastWeekStart);
+                    dateFinInput.value = formatDate(lastWeekEnd);
+                    break;
+                case 'mois':
+                    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+                    dateDebutInput.value = formatDate(monthStart);
+                    dateFinInput.value = formatDate(today);
+                    break;
+                case 'mois_dernier':
+                    const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                    const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+                    dateDebutInput.value = formatDate(lastMonthStart);
+                    dateFinInput.value = formatDate(lastMonthEnd);
+                    break;
+                case 'trimestre':
+                    const quarterStart = new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) * 3, 1);
+                    dateDebutInput.value = formatDate(quarterStart);
+                    dateFinInput.value = formatDate(today);
+                    break;
+                case 'annee':
+                    const yearStart = new Date(today.getFullYear(), 0, 1);
+                    dateDebutInput.value = formatDate(yearStart);
+                    dateFinInput.value = formatDate(today);
+                    break;
+                default:
+                    break;
+            }
+        });
+    }
+    
+    // Réinitialisation des dates
+    const resetDatesBtn = document.getElementById('resetDatesBtn');
+    if (resetDatesBtn) {
+        resetDatesBtn.addEventListener('click', function() {
+            if (dateDebutInput) dateDebutInput.value = '';
+            if (dateFinInput) dateFinInput.value = '';
+            if (periodeSelect) periodeSelect.value = '';
+            const periodeGlissante = document.querySelector('select[name="periode_glissante"]');
+            if (periodeGlissante) periodeGlissante.value = '';
+        });
+    }
+    
+    // Effacement de l'alerte
+    const clearDateAlert = document.getElementById('clearDateAlert');
+    if (clearDateAlert) {
+        clearDateAlert.addEventListener('click', function() {
+            if (dateDebutInput) dateDebutInput.value = '';
+            if (dateFinInput) dateFinInput.value = '';
+            if (periodeSelect) periodeSelect.value = '';
+            const periodeGlissante = document.querySelector('select[name="periode_glissante"]');
+            if (periodeGlissante) periodeGlissante.value = '';
+        });
+    }
+    
+    // Export CSV
+    const exportCSV = document.getElementById('exportCSV');
+    if (exportCSV) {
+        exportCSV.addEventListener('click', function() {
+            const table = document.getElementById('resultTable');
+            const rows = table.querySelectorAll('tr');
+            let csv = [];
+            
+            for (let i = 0; i < rows.length; i++) {
+                const row = [], cols = rows[i].querySelectorAll('td, th');
+                for (let j = 0; j < cols.length; j++) {
+                    let text = cols[j].innerText.replace(/\n/g, ' ').trim();
+                    row.push('"' + text + '"');
+                }
+                csv.push(row.join(','));
+            }
+            
+            const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'comparaison_masp_{{ date_generation|date:"Ymd_His" }}.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+    }
+});
+</script>
+{% endblock %}

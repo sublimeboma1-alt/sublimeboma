@@ -1,0 +1,56 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block content %}
+<div style="padding: 20px;">
+    <h1>🖨️ Impression en Masse</h1>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+            <h3>Sélectionnez les élèves</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="select-all"></th>
+                        <th>Matricule</th>
+                        <th>Nom complet</th>
+                        <th>Classe</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for eleve in eleves %}
+                    <tr>
+                        <td><input type="checkbox" name="eleves" value="{{ eleve.id }}"></td>
+                        <td>{{ eleve.matricule }}</td>
+                        <td>{{ eleve.nom }} {{ eleve.post_nom }} {{ eleve.prenom }}</td>
+                        <td>{{ eleve.classe }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <div style="background: white; padding: 20px; border-radius: 10px;">
+            <h3>Type de document</h3>
+            <select name="type_doc" style="padding: 10px; margin: 10px 0; width: 100%;">
+                <option value="bulletin">Bulletin scolaire</option>
+                <option value="certificat">Certificat de scolarité</option>
+                <option value="carte">Carte d'étudiant</option>
+            </select>
+            
+            <button type="submit" style="background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">
+                Générer les documents
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+document.getElementById('select-all').addEventListener('change', function() {
+    const checkboxes = document.querySelectorAll('input[name="eleves"]');
+    checkboxes.forEach(cb => cb.checked = this.checked);
+});
+</script>
+{% endblock %}

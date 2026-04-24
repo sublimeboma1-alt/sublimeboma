@@ -1,0 +1,133 @@
+{% extends 'noyau/base.html' %}
+{% load static %}
+
+{% block title %}Appliquer les tarifs - Frais scolaires{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-6 offset-md-3">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-users"></i> Appliquer les tarifs aux élèves</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Année scolaire :</strong> {{ annee_active.annee }}
+                    </div>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Niveau *</label>
+                            <select name="niveau" id="id_niveau" class="form-control" required>
+                                <option value="">-- Sélectionnez le niveau --</option>
+                                <option value="maternel">Maternel</option>
+                                <option value="primaire">Primaire</option>
+                                <option value="humanite">Humanité</option>
+                            </select>
+                        </div>
+                        
+                        <div id="div_classe_maternel" style="display: none;">
+                            <div class="mb-3">
+                                <label class="form-label">Classe Maternel *</label>
+                                <select name="classe" class="form-control">
+                                    <option value="">-- Sélectionnez la classe --</option>
+                                    {% for value, label in classes_maternel %}
+                                    <option value="{{ value }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div id="div_classe_primaire" style="display: none;">
+                            <div class="mb-3">
+                                <label class="form-label">Classe Primaire *</label>
+                                <select name="classe" class="form-control">
+                                    <option value="">-- Sélectionnez la classe --</option>
+                                    {% for value, label in classes_primaire %}
+                                    <option value="{{ value }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div id="div_classe_humanite" style="display: none;">
+                            <div class="mb-3">
+                                <label class="form-label">Classe Humanité *</label>
+                                <select name="classe" class="form-control">
+                                    <option value="">-- Sélectionnez la classe --</option>
+                                    {% for value, label in classes_humanite %}
+                                    <option value="{{ value }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Option (Section)</label>
+                                <select name="option" class="form-control">
+                                    <option value="">-- Toutes les options --</option>
+                                    {% for value, label in options %}
+                                    <option value="{{ value }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <small class="text-muted">Sélectionnez une option ou laissez vide pour toutes</small>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Trimestre (optionnel)</label>
+                            <select name="trimestre" class="form-control">
+                                <option value="">Tous les trimestres</option>
+                                <option value="1">1er Trimestre</option>
+                                <option value="2">2ème Trimestre</option>
+                                <option value="3">3ème Trimestre</option>
+                            </select>
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Attention :</strong> Cette opération va créer des frais pour tous les élèves 
+                            correspondant aux critères sélectionnés.
+                        </div>
+                        
+                        <button type="submit" class="btn btn-success w-100" onclick="return confirm('Confirmer l\'application des tarifs ?')">
+                            <i class="fas fa-play"></i> Appliquer les tarifs
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var niveauSelect = document.getElementById('id_niveau');
+    var divMaternel = document.getElementById('div_classe_maternel');
+    var divPrimaire = document.getElementById('div_classe_primaire');
+    var divHumanite = document.getElementById('div_classe_humanite');
+    
+    function toggleFields() {
+        var niveau = niveauSelect.value;
+        
+        divMaternel.style.display = 'none';
+        divPrimaire.style.display = 'none';
+        divHumanite.style.display = 'none';
+        
+        if (niveau === 'maternel') {
+            divMaternel.style.display = 'block';
+        } else if (niveau === 'primaire') {
+            divPrimaire.style.display = 'block';
+        } else if (niveau === 'humanite') {
+            divHumanite.style.display = 'block';
+        }
+    }
+    
+    niveauSelect.addEventListener('change', toggleFields);
+    toggleFields();
+});
+</script>
+{% endblock %}

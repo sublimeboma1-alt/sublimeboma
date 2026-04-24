@@ -1,0 +1,285 @@
+{% extends 'noyau/base.html' %}
+{% load static %}
+
+{% block title %}Configurer les tarifs - Frais scolaires{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-5">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-plus-circle"></i> Ajouter un tarif</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="tarifForm">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Niveau *</label>
+                            <select name="niveau" id="id_niveau" class="form-control" required>
+                                <option value="">-- Sélectionnez le niveau --</option>
+                                <option value="maternel">Maternel</option>
+                                <option value="primaire">Primaire</option>
+                                <option value="humanite">Humanité</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Champ pour Maternel -->
+                        <div id="maternel_div" style="display: none;">
+                            <div class="mb-3">
+                                <label class="form-label">Classe Maternel *</label>
+                                <select name="classe_maternel" id="id_classe_maternel" class="form-control">
+                                    <option value="">-- Sélectionnez la classe --</option>
+                                    <option value="1ere_maternelle">1ère maternelle</option>
+                                    <option value="2eme_maternelle">2ème maternelle</option>
+                                    <option value="3eme_maternelle">3ème maternelle</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Champ pour Primaire -->
+                        <div id="primaire_div" style="display: none;">
+                            <div class="mb-3">
+                                <label class="form-label">Classe Primaire *</label>
+                                <select name="classe_primaire" id="id_classe_primaire" class="form-control">
+                                    <option value="">-- Sélectionnez la classe --</option>
+                                    <option value="1ere">1ère année</option>
+                                    <option value="2eme">2ème année</option>
+                                    <option value="3eme">3ème année</option>
+                                    <option value="4eme">4ème année</option>
+                                    <option value="5eme">5ème année</option>
+                                    <option value="6eme">6ème année</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Champs pour Humanité -->
+                        <div id="humanite_div" style="display: none;">
+                            <div class="mb-3">
+                                <label class="form-label">Classe Humanité *</label>
+                                <select name="classe_humanite" id="id_classe_humanite" class="form-control">
+                                    <option value="">-- Sélectionnez la classe --</option>
+                                    <option value="7eme">7ème année</option>
+                                    <option value="8eme">8ème année</option>
+                                    <option value="1ere_humanite">1ère humanité</option>
+                                    <option value="2eme_humanite">2ème humanité</option>
+                                    <option value="3eme_humanite">3ème humanité</option>
+                                    <option value="4eme_humanite">4ème humanité</option>
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Option (Section) *</label>
+                                <select name="option_humanite" id="id_option_humanite" class="form-control">
+                                    <option value="">-- Sélectionnez l'option --</option>
+                                    <option value="chimie_biologie">Chimie Biologie</option>
+                                    <option value="pedagogie">Pédagogie</option>
+                                    <option value="electricite">Électricité</option>
+                                    <option value="coupe_couture">Coupe et Couture</option>
+                                    <option value="latin_philo">Latin Philo</option>
+                                    <option value="commerciale">Commerciale</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Trimestre *</label>
+                            <select name="trimestre" class="form-control" required>
+                                <option value="">-- Sélectionnez le trimestre --</option>
+                                <option value="1">1er Trimestre</option>
+                                <option value="2">2ème Trimestre</option>
+                                <option value="3">3ème Trimestre</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Type de frais *</label>
+                            <select name="type_frais" class="form-control" required>
+                                <option value="">-- Sélectionnez le type --</option>
+                                <option value="inscription">Frais d'inscription</option>
+                                <option value="minerval">Minerval</option>
+                                <option value="uniforme">Uniforme</option>
+                                <option value="examen">Frais d'examen</option>
+                                <option value="bibliotheque">Bibliothèque</option>
+                                <option value="activite">Activité parascolaire</option>
+                                <option value="cantine">Cantine</option>
+                                <option value="transport">Transport</option>
+                                <option value="autre">Autre</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Montant (FC) *</label>
+                            <input type="number" name="montant" class="form-control" step="0.01" required>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-save"></i> Enregistrer le tarif
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-7">
+            <div class="card shadow-sm">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="fas fa-list"></i> Tarifs existants ({{ annee_active.annee }})</h5>
+                </div>
+                <div class="card-body">
+                    {% if tarifs %}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Niveau</th>
+                                        <th>Classe/Option</th>
+                                        <th>Trim.</th>
+                                        <th>Type</th>
+                                        <th>Montant</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for tarif in tarifs %}
+                                    <tr>
+                                        <td>
+                                            {% if tarif.niveau == 'maternel' %}
+                                                <span class="badge bg-warning">Maternel</span>
+                                            {% elif tarif.niveau == 'primaire' %}
+                                                <span class="badge bg-primary">Primaire</span>
+                                            {% else %}
+                                                <span class="badge bg-success">Humanité</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if tarif.niveau == 'maternel' %}
+                                                {% if tarif.classe_maternel == '1ere_maternelle' %}1ère maternelle
+                                                {% elif tarif.classe_maternel == '2eme_maternelle' %}2ème maternelle
+                                                {% elif tarif.classe_maternel == '3eme_maternelle' %}3ème maternelle
+                                                {% else %}{{ tarif.classe_maternel }}{% endif %}
+                                            {% elif tarif.niveau == 'primaire' %}
+                                                {% if tarif.classe_primaire == '1ere' %}1ère année
+                                                {% elif tarif.classe_primaire == '2eme' %}2ème année
+                                                {% elif tarif.classe_primaire == '3eme' %}3ème année
+                                                {% elif tarif.classe_primaire == '4eme' %}4ème année
+                                                {% elif tarif.classe_primaire == '5eme' %}5ème année
+                                                {% elif tarif.classe_primaire == '6eme' %}6ème année
+                                                {% else %}{{ tarif.classe_primaire }}{% endif %}
+                                            {% else %}
+                                                <strong>
+                                                {% if tarif.classe_humanite == '7eme' %}7ème année
+                                                {% elif tarif.classe_humanite == '8eme' %}8ème année
+                                                {% elif tarif.classe_humanite == '1ere_humanite' %}1ère humanité
+                                                {% elif tarif.classe_humanite == '2eme_humanite' %}2ème humanité
+                                                {% elif tarif.classe_humanite == '3eme_humanite' %}3ème humanité
+                                                {% elif tarif.classe_humanite == '4eme_humanite' %}4ème humanité
+                                                {% else %}{{ tarif.classe_humanite }}{% endif %}
+                                                </strong>
+                                                <br>
+                                                <small class="text-info">
+                                                    {% if tarif.option_humanite == 'chimie_biologie' %}Chimie Biologie
+                                                    {% elif tarif.option_humanite == 'pedagogie' %}Pédagogie
+                                                    {% elif tarif.option_humanite == 'electricite' %}Électricité
+                                                    {% elif tarif.option_humanite == 'coupe_couture' %}Coupe et Couture
+                                                    {% elif tarif.option_humanite == 'latin_philo' %}Latin Philo
+                                                    {% elif tarif.option_humanite == 'commerciale' %}Commerciale
+                                                    {% else %}{{ tarif.option_humanite }}{% endif %}
+                                                </small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if tarif.trimestre == 1 %}1er Trim.
+                                            {% elif tarif.trimestre == 2 %}2ème Trim.
+                                            {% else %}3ème Trim.{% endif %}
+                                        </td>
+                                        <td>
+                                            {% if tarif.type_frais == 'inscription' %}Inscription
+                                            {% elif tarif.type_frais == 'minerval' %}Minerval
+                                            {% elif tarif.type_frais == 'uniforme' %}Uniforme
+                                            {% elif tarif.type_frais == 'examen' %}Examen
+                                            {% elif tarif.type_frais == 'bibliotheque' %}Bibliothèque
+                                            {% elif tarif.type_frais == 'activite' %}Activité
+                                            {% elif tarif.type_frais == 'cantine' %}Cantine
+                                            {% elif tarif.type_frais == 'transport' %}Transport
+                                            {% else %}Autre{% endif %}
+                                        </td>
+                                        <td class="text-end">{{ tarif.montant|floatformat:0 }} FC</td>
+                                        <td>
+                                            <a href="{% url 'frais_scolaire:supprimer_tarif' tarif.pk %}" 
+                                               class="btn btn-sm btn-danger"
+                                               onclick="return confirm('Supprimer ce tarif ?')">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="6" class="text-center py-4">
+                                            <i class="fas fa-info-circle"></i> Aucun tarif configuré
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info text-center">
+                            <i class="fas fa-info-circle"></i> Aucun tarif configuré pour l'année {{ annee_active.annee }}.
+                            <br>Utilisez le formulaire à gauche pour ajouter un tarif.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var niveauSelect = document.getElementById('id_niveau');
+    var maternelDiv = document.getElementById('maternel_div');
+    var primaireDiv = document.getElementById('primaire_div');
+    var humaniteDiv = document.getElementById('humanite_div');
+    var classeMaternel = document.getElementById('id_classe_maternel');
+    var classePrimaire = document.getElementById('id_classe_primaire');
+    var classeHumanite = document.getElementById('id_classe_humanite');
+    var optionHumanite = document.getElementById('id_option_humanite');
+    
+    function toggleFields() {
+        var niveau = niveauSelect.value;
+        
+        // Cacher les trois divs
+        maternelDiv.style.display = 'none';
+        primaireDiv.style.display = 'none';
+        humaniteDiv.style.display = 'none';
+        
+        // Désactiver les required
+        if (classeMaternel) classeMaternel.required = false;
+        if (classePrimaire) classePrimaire.required = false;
+        if (classeHumanite) classeHumanite.required = false;
+        if (optionHumanite) optionHumanite.required = false;
+        
+        if (niveau === 'maternel') {
+            maternelDiv.style.display = 'block';
+            if (classeMaternel) classeMaternel.required = true;
+        } 
+        else if (niveau === 'primaire') {
+            primaireDiv.style.display = 'block';
+            if (classePrimaire) classePrimaire.required = true;
+        } 
+        else if (niveau === 'humanite') {
+            humaniteDiv.style.display = 'block';
+            if (classeHumanite) classeHumanite.required = true;
+            if (optionHumanite) optionHumanite.required = true;
+        }
+    }
+    
+    if (niveauSelect) {
+        niveauSelect.addEventListener('change', toggleFields);
+        toggleFields();
+    }
+});
+</script>
+{% endblock %}

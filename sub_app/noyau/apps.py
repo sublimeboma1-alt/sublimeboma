@@ -1,0 +1,6 @@
+from django.apps import AppConfig
+
+
+class NoyauConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'sub_app.noyau'

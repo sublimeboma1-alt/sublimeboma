@@ -1,0 +1,31 @@
+{% extends 'noyau/base.html' %}
+
+{% block title %}Supprimer l'élève{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-6 offset-md-3">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h3>Confirmation de suppression</h3>
+                </div>
+                <div class="card-body">
+                    <p>Êtes-vous sûr de vouloir supprimer l'élève :</p>
+                    <h4>{{ eleve.nom }} {{ eleve.post_nom }} {{ eleve.prenom }}</h4>
+                    <p><strong>Matricule:</strong> {{ eleve.matricule }}</p>
+                    <p><strong>Classe:</strong> {{ eleve.classe }}</p>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="submit" class="btn btn-danger">Oui, supprimer</button>
+                            <a href="{% url 'eleves:detail_eleve' eleve.pk %}" class="btn btn-secondary">Non, annuler</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

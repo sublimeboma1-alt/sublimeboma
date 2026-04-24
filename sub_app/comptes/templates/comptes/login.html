@@ -1,0 +1,416 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion - Complexe Scolaire Sublime</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts - Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow-x: hidden;
+        }
+        
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" opacity="0.05"><path fill="white" d="M20,20 L30,20 L25,30 Z M70,70 L80,70 L75,80 Z M45,10 L55,10 L50,20 Z M10,60 L20,60 L15,70 Z M85,40 L95,40 L90,50 Z"/><circle cx="50" cy="50" r="2"/><circle cx="80" cy="20" r="1.5"/><circle cx="15" cy="85" r="1.5"/></svg>') repeat;
+            pointer-events: none;
+        }
+        
+        .login-container {
+            width: 100%;
+            max-width: 460px;
+            padding: 1.5rem;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .login-card {
+            background: white;
+            border-radius: 32px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .login-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .login-header {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            padding: 2rem 1.5rem;
+            text-align: center;
+        }
+        
+        .school-icon {
+            font-size: 3rem;
+            color: #fbbf24;
+            margin-bottom: 0.75rem;
+        }
+        
+        .login-header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: white;
+            margin: 0;
+            letter-spacing: -0.01em;
+        }
+        
+        .login-header p {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            margin-top: 0.5rem;
+            margin-bottom: 0;
+        }
+        
+        .login-body {
+            padding: 2rem 1.75rem;
+        }
+        
+        .login-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.02em;
+        }
+        
+        .login-subtitle {
+            font-size: 0.85rem;
+            color: #64748b;
+            margin-bottom: 1.75rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-group label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #334155;
+            margin-bottom: 0.5rem;
+            display: block;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .input-group-custom {
+            position: relative;
+        }
+        
+        .input-group-custom i:first-child {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            font-size: 1rem;
+            pointer-events: none;
+        }
+        
+        .input-group-custom input {
+            width: 100%;
+            padding: 0.9rem 1rem 0.9rem 2.8rem;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 16px;
+            font-size: 0.9rem;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.2s ease;
+            background: #ffffff;
+        }
+        
+        .input-group-custom input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        /* Style pour le champ mot de passe avec l'œil */
+        .password-wrapper {
+            position: relative;
+        }
+        
+        .password-wrapper input {
+            padding-right: 45px;
+        }
+        
+        .toggle-password {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            color: #94a3b8;
+            font-size: 1rem;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s;
+            z-index: 5;
+        }
+        
+        .toggle-password:hover {
+            color: #3b82f6;
+        }
+        
+        .btn-login {
+            width: 100%;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            border: none;
+            padding: 0.9rem;
+            border-radius: 16px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: white;
+            transition: all 0.2s ease;
+            margin-top: 0.5rem;
+            cursor: pointer;
+        }
+        
+        .btn-login:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 20px -5px rgba(59, 130, 246, 0.4);
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        }
+        
+        .btn-login:active {
+            transform: translateY(0);
+        }
+        
+        .register-link {
+            text-align: center;
+            margin-top: 1.75rem;
+            padding-top: 1rem;
+            border-top: 1px solid #eef2f6;
+        }
+        
+        .register-link p {
+            font-size: 0.85rem;
+            color: #64748b;
+            margin: 0;
+        }
+        
+        .register-link a {
+            color: #3b82f6;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+        
+        .register-link a:hover {
+            color: #1d4ed8;
+            text-decoration: underline;
+        }
+        
+        .error-message {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 14px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.8rem;
+            color: #dc2626;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .error-message i {
+            font-size: 1rem;
+        }
+        
+        .errorlist {
+            list-style: none;
+            margin-top: 0.5rem;
+            padding: 0;
+        }
+        
+        .errorlist li {
+            font-size: 0.7rem;
+            color: #dc2626;
+            margin-bottom: 0.25rem;
+        }
+        
+        input.is-invalid {
+            border-color: #dc2626 !important;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .login-card {
+            animation: fadeInUp 0.4s ease-out;
+        }
+        
+        @media (max-width: 480px) {
+            .login-container {
+                padding: 1rem;
+            }
+            .login-body {
+                padding: 1.5rem;
+            }
+            .login-header {
+                padding: 1.5rem;
+            }
+            .login-header h1 {
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="school-icon">
+                    <i class="fas fa-graduation-cap"></i>
+                </div>
+                <h1>COMPLEXE SCOLAIRE SUBLIME</h1>
+                <p>Excellence · Discipline · Réussite</p>
+            </div>
+            
+            <div class="login-body">
+                <h2 class="login-title">Connexion</h2>
+                <p class="login-subtitle">Accédez à votre espace de gestion</p>
+                
+                {% if form.non_field_errors %}
+                <div class="error-message">
+                    <i class="fas fa-exclamation-circle"></i>
+                    {% for error in form.non_field_errors %}
+                        {{ error }}
+                    {% endfor %}
+                </div>
+                {% endif %}
+                
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    
+                    <div class="form-group">
+                        <label for="{{ form.username.id_for_label }}">
+                            <i class="fas fa-user me-1"></i> Nom d'utilisateur
+                        </label>
+                        <div class="input-group-custom">
+                            <i class="fas fa-envelope"></i>
+                            <input type="text" 
+                                   name="{{ form.username.name }}" 
+                                   id="{{ form.username.id_for_label }}"
+                                   class="{% if form.username.errors %}is-invalid{% endif %}"
+                                   placeholder="exemple@email.com ou pseudo"
+                                   value="{{ form.username.value|default:'' }}"
+                                   autofocus>
+                        </div>
+                        {% if form.username.errors %}
+                        <ul class="errorlist">
+                            {% for error in form.username.errors %}
+                                <li><i class="fas fa-circle-exclamation fa-xs me-1"></i> {{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="{{ form.password.id_for_label }}">
+                            <i class="fas fa-lock me-1"></i> Mot de passe
+                        </label>
+                        <div class="password-wrapper">
+                            <div class="input-group-custom" style="display: block;">
+                                <i class="fas fa-key"></i>
+                                <input type="password" 
+                                       name="{{ form.password.name }}" 
+                                       id="passwordField"
+                                       class="{% if form.password.errors %}is-invalid{% endif %}"
+                                       placeholder="••••••••">
+                            </div>
+                            <button type="button" class="toggle-password" id="togglePassword">
+                                <i class="fas fa-eye-slash"></i>
+                            </button>
+                        </div>
+                        {% if form.password.errors %}
+                        <ul class="errorlist">
+                            {% for error in form.password.errors %}
+                                <li><i class="fas fa-circle-exclamation fa-xs me-1"></i> {{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+                    </div>
+                    
+                    <button type="submit" class="btn-login">
+                        <i class="fas fa-sign-in-alt me-2"></i> Se connecter
+                    </button>
+                </form>
+                
+                <div class="register-link">
+                    <p>Pas encore de compte ? <a href="{% url 'comptes:register' %}">S'inscrire</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // ŒIL POUR VOIR/MASQUER LE MOT DE PASSE
+        document.addEventListener('DOMContentLoaded', function() {
+            const passwordField = document.getElementById('passwordField');
+            const toggleBtn = document.getElementById('togglePassword');
+            
+            if (passwordField && toggleBtn) {
+                toggleBtn.addEventListener('click', function() {
+                    // Basculer le type du champ
+                    const type = passwordField.getAttribute('type') === 'password' ? 'text' : 'password';
+                    passwordField.setAttribute('type', type);
+                    
+                    // Changer l'icône
+                    const icon = toggleBtn.querySelector('i');
+                    if (type === 'text') {
+                        icon.classList.remove('fa-eye-slash');
+                        icon.classList.add('fa-eye');
+                    } else {
+                        icon.classList.remove('fa-eye');
+                        icon.classList.add('fa-eye-slash');
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

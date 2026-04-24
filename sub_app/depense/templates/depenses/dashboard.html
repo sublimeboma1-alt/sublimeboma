@@ -1,0 +1,90 @@
+{% extends 'noyau/base.html' %}
+
+{% block title %}Dashboard Dépenses{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h3 class="mb-4">Tableau de bord des dépenses</h3>
+    
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card text-white bg-info mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Aujourd'hui</h5>
+                    <h2>{{ total_jour|floatformat:0 }} FC</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-warning mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Ce mois</h5>
+                    <h2>{{ total_mois|floatformat:0 }} FC</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-success mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Cette année</h5>
+                    <h2>{{ total_annee|floatformat:0 }} FC</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    Dernières dépenses
+                </div>
+                <div class="card-body">
+                    <ul class="list-group">
+                        {% for depense in dernieres_depenses %}
+                        <li class="list-group-item">
+                            <strong>{{ depense.code }}</strong> - 
+                            {{ depense.titre }} - 
+                            <span class="text-danger">{{ depense.montant|floatformat:0 }} FC</span>
+                            <br>
+                            <small>{{ depense.date_depense|date:"d/m/Y" }} | {{ depense.beneficiaire }}</small>
+                        </li>
+                        {% empty %}
+                        <li class="list-group-item">Aucune dépense</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    Dépenses par catégorie
+                </div>
+                <div class="card-body">
+                    {% for item in depenses_par_categorie %}
+                    <div class="mb-2">
+                        <strong>{{ item.categorie }}</strong>
+                        <div class="progress">
+                            <div class="progress-bar bg-danger" style="width: 100%">
+                                {{ item.total|floatformat:0 }} FC
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p>Aucune donnée</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-3">
+        <div class="col-12">
+            <a href="{% url 'depense:ajouter_depense' %}" class="btn btn-success">+ Nouvelle dépense</a>
+            <a href="{% url 'depense:liste_depenses' %}" class="btn btn-secondary">Voir toutes les dépenses</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

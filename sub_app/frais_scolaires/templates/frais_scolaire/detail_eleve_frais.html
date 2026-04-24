@@ -1,0 +1,209 @@
+{% extends 'noyau/base.html' %}
+{% load static %}
+{% load frais_filters %}
+
+{% block title %}Frais de {{ eleve.nom }} {{ eleve.prenom }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- En-tête avec infos élève -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h4 class="mb-0">
+                        <i class="fas fa-user-graduate"></i> 
+                        {{ eleve.nom }} {{ eleve.post_nom }} {{ eleve.prenom }}
+                    </h4>
+                    <small>
+                        <i class="fas fa-hashtag"></i> Matricule: {{ eleve.matricule }} |
+                        <i class="fas fa-graduation-cap"></i> Classe: {{ eleve.classe|default:"Non assignée" }}
+                        {% if eleve.classe and eleve.classe.section %}
+                            | <i class="fas fa-layer-group"></i> Option: {{ eleve.classe.get_section_display }}
+                        {% endif %}
+                    </small>
+                </div>
+                <div class="col-md-4 text-end">
+                    <a href="{% url 'frais_scolaire:enregistrer_paiement' eleve.pk %}" class="btn btn-light">
+                        <i class="fas fa-money-bill-wave"></i> Nouveau paiement
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Frais par trimestre -->
+    <div class="row">
+        {% for trimestre_data in frais_par_trimestre %}
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header {% if trimestre_data.solde == 0 %}bg-success{% elif trimestre_data.total_paye > 0 %}bg-warning{% else %}bg-danger{% endif %} text-white">
+                    <h5 class="mb-0 text-center">
+                        {% if trimestre_data.trimestre == 1 %}
+                            <i class="fas fa-calendar"></i> 1er Trimestre
+                        {% elif trimestre_data.trimestre == 2 %}
+                            <i class="fas fa-calendar"></i> 2ème Trimestre
+                        {% else %}
+                            <i class="fas fa-calendar"></i> 3ème Trimestre
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Résumé -->
+                    <div class="row text-center mb-3">
+                        <div class="col-4">
+                            <small class="text-muted">À payer</small>
+                            <h6 class="mb-0">{{ trimestre_data.total_a_payer|floatformat:0 }} FC</h6>
+                        </div>
+                        <div class="col-4">
+                            <small class="text-muted text-success">Payé</small>
+                            <h6 class="mb-0 text-success">{{ trimestre_data.total_paye|floatformat:0 }} FC</h6>
+                        </div>
+                        <div class="col-4">
+                            <small class="text-muted text-danger">Solde</small>
+                            <h6 class="mb-0 text-danger">{{ trimestre_data.solde|floatformat:0 }} FC</h6>
+                        </div>
+                    </div>
+                    
+                    <!-- Barre de progression -->
+                    {% if trimestre_data.total_a_payer > 0 %}
+                    <div class="progress mb-3" style="height: 8px;">
+                        {% with pourcentage=trimestre_data.total_paye|floatformat:0 %}
+                        <div class="progress-bar {% if trimestre_data.solde == 0 %}bg-success{% else %}bg-info{% endif %}" 
+                             role="progressbar" 
+                             style="width: {% widthratio trimestre_data.total_paye trimestre_data.total_a_payer 100 %}%"
+                             aria-valuenow="{% widthratio trimestre_data.total_paye trimestre_data.total_a_payer 100 %}" 
+                             aria-valuemin="0" aria-valuemax="100">
+                        </div>
+                        {% endwith %}
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Détail des frais -->
+                    {% if trimestre_data.frais_liste %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-borderless">
+                            <thead>
+                                <tr>
+                                    <th>Type de frais</th>
+                                    <th class="text-end">Montant</th>
+                                    <th class="text-end">Payé</th>
+                                    <th class="text-end">Reste</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for frais in trimestre_data.frais_liste %}
+                                <tr>
+                                    <td>
+                                        <small>{{ frais.get_type_frais_display }}</small>
+                                        {% if frais.solde_restant == 0 %}
+                                            <i class="fas fa-check-circle text-success"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end">{{ frais.montant_total|floatformat:0 }} FC</td>
+                                    <td class="text-end text-success">{{ frais.total_paye|floatformat:0 }} FC</td>
+                                    <td class="text-end text-danger">{{ frais.solde_restant|floatformat:0 }} FC</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-secondary text-center mb-0">
+                        <small>Aucun frais enregistré pour ce trimestre</small>
+                    </div>
+                    {% endif %}
+                </div>
+                {% if trimestre_data.solde > 0 %}
+                <div class="card-footer text-center">
+                    <a href="{% url 'frais_scolaire:enregistrer_paiement' eleve.pk %}" class="btn btn-sm btn-success">
+                        <i class="fas fa-plus"></i> Effectuer un paiement
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Historique des paiements -->
+    <div class="card shadow-sm mt-3">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0"><i class="fas fa-history"></i> Historique des paiements</h5>
+        </div>
+        <div class="card-body">
+            {% if paiements %}
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>N° Reçu</th>
+                            <th>Date</th>
+                            <th>Trimestre</th>
+                            <th>Type de frais</th>
+                            <th>Montant</th>
+                            <th>Mode</th>
+                            <th>Agent</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for paiement in paiements %}
+                        <tr>
+                            <td><code>{{ paiement.reference }}</code></td>
+                            <td>{{ paiement.date_paiement|date:"d/m/Y" }}</td>
+                            <td>{{ paiement.frais.get_trimestre_display }}</td>
+                            <td>{{ paiement.frais.get_type_frais_display }}</td>
+                            <td class="text-success fw-bold">{{ paiement.montant_paye|floatformat:0 }} FC</td>
+                            <td>{{ paiement.get_mode_paiement_display }}</td>
+                            <td>{{ paiement.agent.username|default:"-" }}</td>
+                            <td>
+                                <a href="{% url 'frais_scolaire:imprimer_recu' paiement.pk %}" 
+                                   class="btn btn-sm btn-secondary" target="_blank">
+                                    <i class="fas fa-print"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-dark">
+                        <tr>
+                            <th colspan="4" class="text-end">Total général :</th>
+                            <th class="text-success">{{ paiements|sum_attribute:'montant_paye'|floatformat:0 }} FC</th>
+                            <th colspan="3"></th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info text-center mb-0">
+                <i class="fas fa-info-circle"></i> Aucun paiement enregistré pour cet élève
+            </div>
+            {% endif %}
+        </div>
+        <div class="card-footer">
+            <a href="{% url 'frais_scolaire:liste_eleves_frais' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Retour à la liste
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Filtrer les paiements par trimestre (optionnel)
+    document.getElementById('filterTrimestre')?.addEventListener('change', function() {
+        let rows = document.querySelectorAll('#paiementsTable tbody tr');
+        let value = this.value;
+        
+        rows.forEach(row => {
+            if (value === '' || row.cells[2].innerText.includes(value)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    });
+</script>
+{% endblock %}

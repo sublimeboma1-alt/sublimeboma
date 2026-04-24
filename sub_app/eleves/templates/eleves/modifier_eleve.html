@@ -1,0 +1,126 @@
+{% extends 'noyau/base.html' %}
+
+{% block title %}Modifier élève{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+<div class="card shadow">
+    <div class="card-header bg-primary text-white">
+        <h4>Modifier : {{ eleve.nom }} {{ eleve.prenom }}</h4>
+    </div>
+
+    <div class="card-body">
+
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            <!-- NOM -->
+            <div class="mb-3">
+                <label>Nom</label>
+                <input type="text" name="nom" class="form-control" value="{{ eleve.nom }}">
+            </div>
+
+            <!-- POST-NOM -->
+            <div class="mb-3">
+                <label>Post-nom</label>
+                <input type="text" name="post_nom" class="form-control" value="{{ eleve.post_nom }}">
+            </div>
+
+            <!-- PRENOM -->
+            <div class="mb-3">
+                <label>Prénom</label>
+                <input type="text" name="prenom" class="form-control" value="{{ eleve.prenom }}">
+            </div>
+
+            <!-- DATE NAISSANCE -->
+            <div class="mb-3">
+                <label>Date de naissance</label>
+                <input type="date" name="date_naissance" class="form-control" value="{{ eleve.date_naissance|date:'Y-m-d' }}">
+            </div>
+
+            <!-- SEXE -->
+            <div class="mb-3">
+                <label>Sexe</label>
+                <select name="sexe" class="form-control">
+                    <option value="M" {% if eleve.sexe == "M" %}selected{% endif %}>Masculin</option>
+                    <option value="F" {% if eleve.sexe == "F" %}selected{% endif %}>Féminin</option>
+                </select>
+            </div>
+
+            <!-- ADRESSE -->
+            <div class="mb-3">
+                <label>Adresse</label>
+                <textarea name="adresse" class="form-control">{{ eleve.adresse }}</textarea>
+            </div>
+
+            <!-- TELEPHONE -->
+            <div class="mb-3">
+                <label>Téléphone</label>
+                <input type="text" name="telephone" class="form-control" value="{{ eleve.telephone }}">
+            </div>
+
+            <!-- EMAIL -->
+            <div class="mb-3">
+                <label>Email</label>
+                <input type="email" name="email" class="form-control" value="{{ eleve.email }}">
+            </div>
+
+            <!-- MASP -->
+            <div class="mb-3 form-check">
+                <input type="checkbox" name="est_masp" class="form-check-input"
+                       {% if eleve.est_masp %}checked{% endif %}>
+                <label class="form-check-label">Mutualité MASP</label>
+            </div>
+
+            <!-- CLASSE -->
+            <div class="mb-3">
+                <label>Classe</label>
+                <select name="classe" class="form-control">
+                    <option value="">-- Choisir --</option>
+                    {% for c in classes %}
+                        <option value="{{ c.id }}"
+                            {% if eleve.classe and eleve.classe.id == c.id %}selected{% endif %}>
+                            {{ c }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- STATUT -->
+            <div class="mb-3">
+                <label>Statut</label>
+                <select name="statut" class="form-control">
+                    <option value="actif" {% if eleve.statut == "actif" %}selected{% endif %}>Actif</option>
+                    <option value="inactif" {% if eleve.statut == "inactif" %}selected{% endif %}>Inactif</option>
+                    <option value="suspendu" {% if eleve.statut == "suspendu" %}selected{% endif %}>Suspendu</option>
+                    <option value="diplome" {% if eleve.statut == "diplome" %}selected{% endif %}>Diplômé</option>
+                </select>
+            </div>
+
+            <!-- PHOTO -->
+            <div class="mb-3">
+                <label>Photo</label><br>
+                {% if eleve.photo %}
+                    <img src="{{ eleve.photo.url }}" width="100" class="mb-2">
+                {% endif %}
+                <input type="file" name="photo" class="form-control">
+            </div>
+
+            <!-- BUTTONS -->
+            <div class="d-flex justify-content-end gap-2">
+                <a href="{% url 'eleves:detail_eleve' eleve.pk %}" class="btn btn-secondary">
+                    Annuler
+                </a>
+                <button type="submit" class="btn btn-success">
+                    Enregistrer
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+</div>
+
+</div>
+{% endblock %}

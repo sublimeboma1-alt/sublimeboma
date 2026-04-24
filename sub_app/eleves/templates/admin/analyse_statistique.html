@@ -1,0 +1,152 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+<style>
+    .stats-container {
+        padding: 20px;
+    }
+    .stats-grid-advanced {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    .stat-box {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        border-left: 4px solid #4CAF50;
+    }
+    .stat-label {
+        font-size: 14px;
+        color: #666;
+        margin-bottom: 10px;
+    }
+    .stat-value {
+        font-size: 28px;
+        font-weight: bold;
+        color: #333;
+    }
+    .stat-unit {
+        font-size: 14px;
+        color: #999;
+        margin-left: 5px;
+    }
+    .dataframe {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+    }
+    .dataframe th {
+        background-color: #4CAF50;
+        color: white;
+        padding: 12px;
+        text-align: left;
+        font-weight: bold;
+    }
+    .dataframe td {
+        border: 1px solid #ddd;
+        padding: 10px;
+    }
+    .dataframe tr:nth-child(even) {
+        background-color: #f9f9f9;
+    }
+    .dataframe tr:hover {
+        background-color: #f5f5f5;
+    }
+    .insight-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="stats-container">
+    <h1>📈 Analyse Statistique Avancée avec Pandas</h1>
+    <p>Analyse détaillée des données avec calculs statistiques</p>
+    
+    <div class="insight-card">
+        <h3>💡 Insights Clés</h3>
+        <ul>
+            <li>Âge moyen des élèves: <strong>{{ stats.age_moyen|floatformat:1 }} ans</strong></li>
+            <li>Classe la plus populaire: <strong>{{ stats.classe_populeuse }}</strong></li>
+            <li>Taux d'activité: <strong>{{ stats.taux_activite|floatformat:1 }}%</strong></li>
+        </ul>
+    </div>
+    
+    <div class="stats-grid-advanced">
+        <div class="stat-box">
+            <div class="stat-label">👨‍🎓 Total Élèves</div>
+            <div class="stat-value">{{ stats.total }}</div>
+        </div>
+        
+        <div class="stat-box">
+            <div class="stat-label">✅ Élèves Actifs</div>
+            <div class="stat-value">{{ stats.actifs }}</div>
+        </div>
+        
+        <div class="stat-box">
+            <div class="stat-label">👦 Total Garçons</div>
+            <div class="stat-value">{{ stats.garcons }}</div>
+        </div>
+        
+        <div class="stat-box">
+            <div class="stat-label">👧 Total Filles</div>
+            <div class="stat-value">{{ stats.filles }}</div>
+        </div>
+        
+        <div class="stat-box">
+            <div class="stat-label">📊 Âge Moyen</div>
+            <div class="stat-value">{{ stats.age_moyen|floatformat:1 }} <span class="stat-unit">ans</span></div>
+        </div>
+        
+        <div class="stat-box">
+            <div class="stat-label">📈 Âge Médian</div>
+            <div class="stat-value">{{ stats.age_median|floatformat:1 }} <span class="stat-unit">ans</span></div>
+        </div>
+    </div>
+    
+    <div class="stat-box" style="margin-bottom: 30px;">
+        <div class="stat-label">📊 Statistiques par Classe</div>
+        <table class="dataframe">
+            <thead>
+                <tr>
+                    <th>Classe</th>
+                    <th>Effectif</th>
+                    <th>Garçons</th>
+                    <th>Filles</th>
+                    <th>% Garçons</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for classe, data in stats_classe.items %}
+                <tr>
+                    <td>{{ classe }}</td>
+                    <td>{{ data.effectif }}</td>
+                    <td>{{ data.garcons }}</td>
+                    <td>{{ data.filles }}</td>
+                    <td>
+                        {% widthratio data.garcons data.effectif 100 %}%
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5">Aucune donnée disponible</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="stat-box">
+        <div class="stat-label">📋 Aperçu des données (10 premiers élèves)</div>
+        {{ df_head|safe }}
+    </div>
+</div>
+{% endblock %}

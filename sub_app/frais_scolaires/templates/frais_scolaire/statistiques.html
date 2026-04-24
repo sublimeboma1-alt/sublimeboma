@@ -1,0 +1,1048 @@
+{% extends 'noyau/base.html' %}
+{% load static %}
+
+{% block title %}Statistiques des frais scolaires - Complexe Scolaire Sublime{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-gradient-primary text-white shadow-lg border-0">
+                <div class="card-body py-4">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap">
+                        <div>
+                            <h2 class="mb-0 fw-bold">
+                                <i class="fas fa-chart-line me-2"></i> Statistiques des frais scolaires
+                            </h2>
+                            <p class="mb-0 mt-2 opacity-75">
+                                <i class="fas fa-calendar-alt me-1"></i> Année scolaire: <strong>{{ annee_active.annee }}</strong>
+                                <span class="mx-2">|</span>
+                                <i class="fas fa-clock me-1"></i> Généré le: {{ date_generation|date:"d/m/Y H:i" }}
+                                <span class="mx-2">|</span>
+                                <i class="fas fa-chart-simple me-1"></i> Données en temps réel
+                            </p>
+                        </div>
+                        <div class="btn-group mt-3 mt-md-0">
+                            <button type="button" class="btn btn-light shadow-sm" id="btnPrint" onclick="window.print()">
+                                <i class="fas fa-print me-1 text-secondary"></i> Imprimer
+                            </button>
+                            <button type="button" class="btn btn-light shadow-sm" id="btnExcel" onclick="window.location.href='{% url 'frais_scolaire:export_statistiques_excel' %}?{{ request.GET.urlencode }}'">
+                                <i class="fas fa-file-excel me-1 text-success"></i> Excel
+                            </button>
+                            <button type="button" class="btn btn-light shadow-sm" id="btnPDF" onclick="window.location.href='{% url 'frais_scolaire:export_statistiques_pdf' %}?{{ request.GET.urlencode }}'">
+                                <i class="fas fa-file-pdf me-1 text-danger"></i> PDF
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres avancés avec dates -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-primary text-white py-3">
+                    <h5 class="mb-0 fw-bold">
+                        <i class="fas fa-filter me-2"></i> Filtres avancés
+                        <span class="badge bg-light text-dark ms-2">Filtrez vos données</span>
+                    </h5>
+                </div>
+                <div class="card-body bg-light">
+                    <form method="get" class="row g-3" id="filterForm">
+                        <!-- Première ligne : filtres existants -->
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold small">
+                                <i class="fas fa-layer-group me-1"></i> Niveau
+                            </label>
+                            <select name="niveau" class="form-select shadow-sm">
+                                <option value="">🌍 Tous les niveaux</option>
+                                <option value="maternel" {% if niveau_filter == 'maternel' %}selected{% endif %}>🍼 Maternel</option>
+                                <option value="primaire" {% if niveau_filter == 'primaire' %}selected{% endif %}>📚 Primaire</option>
+                                <option value="humanite" {% if niveau_filter == 'humanite' %}selected{% endif %}>🎓 Humanité</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold small">
+                                <i class="fas fa-graduation-cap me-1"></i> Classe
+                            </label>
+                            <select name="classe" class="form-select shadow-sm">
+                                <option value="">🏫 Toutes les classes</option>
+                                <optgroup label="🍼 Maternel">
+                                    {% for value, label in classes_maternel %}
+                                        <option value="{{ value }}" {% if classe_filter == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                                <optgroup label="📚 Primaire">
+                                    {% for value, label in classes_primaire %}
+                                        <option value="{{ value }}" {% if classe_filter == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                                <optgroup label="🎓 Humanité">
+                                    {% for value, label in classes_humanite %}
+                                        <option value="{{ value }}" {% if classe_filter == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold small">
+                                <i class="fas fa-chart-simple me-1"></i> Trimestre
+                            </label>
+                            <select name="trimestre" class="form-select shadow-sm">
+                                <option value="">📅 Tous les trimestres</option>
+                                <option value="1" {% if trimestre_filter == '1' %}selected{% endif %}>🥇 1er Trimestre</option>
+                                <option value="2" {% if trimestre_filter == '2' %}selected{% endif %}>🥈 2ème Trimestre</option>
+                                <option value="3" {% if trimestre_filter == '3' %}selected{% endif %}>🥉 3ème Trimestre</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold small">
+                                <i class="fas fa-tag me-1"></i> Type de frais
+                            </label>
+                            <select name="type_frais" class="form-select shadow-sm">
+                                <option value="">💰 Tous les types</option>
+                                {% for key, label in types_frais.items %}
+                                    <option value="{{ key }}" {% if type_frais_filter == key %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold small">
+                                <i class="fas fa-chart-pie me-1"></i> Statut paiement
+                            </label>
+                            <select name="statut_paiement" class="form-select shadow-sm">
+                                <option value="">📊 Tous les statuts</option>
+                                <option value="paye" {% if statut_paiement_filter == 'paye' %}selected{% endif %}>✅ Payé</option>
+                                <option value="partiel" {% if statut_paiement_filter == 'partiel' %}selected{% endif %}>⚠️ Partiel</option>
+                                <option value="impaye" {% if statut_paiement_filter == 'impaye' %}selected{% endif %}>❌ Impayé</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold small">
+                                <i class="fas fa-hand-holding-heart me-1"></i> Catégorie MASP
+                            </label>
+                            <select name="statut_masp" class="form-select shadow-sm">
+                                <option value="">👥 Tous les élèves</option>
+                                <option value="masp" {% if statut_masp_filter == 'masp' %}selected{% endif %}>🤝 MASP (Mutualité)</option>
+                                <option value="non_masp" {% if statut_masp_filter == 'non_masp' %}selected{% endif %}>📋 Hors MASP (Ordinaire)</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Nouvelle section : Filtres par date -->
+                        <div class="col-12 mt-3">
+                            <div class="card bg-white border-0 shadow-sm">
+                                <div class="card-header bg-light py-2">
+                                    <i class="fas fa-calendar-alt me-2 text-primary"></i>
+                                    <span class="fw-bold small">Filtres par date de paiement</span>
+                                    <button type="button" class="btn btn-sm btn-link text-primary float-end" id="resetDatesBtn">
+                                        <i class="fas fa-times me-1"></i> Réinitialiser les dates
+                                    </button>
+                                </div>
+                                <div class="card-body py-3">
+                                    <div class="row g-3">
+                                        <div class="col-md-3">
+                                            <label class="form-label small fw-bold">
+                                                <i class="fas fa-calendar-day me-1"></i> Date de début
+                                            </label>
+                                            <input type="date" name="date_debut" class="form-control shadow-sm" 
+                                                   value="{{ date_debut_filter|default:'' }}" 
+                                                   placeholder="jj/mm/aaaa">
+                                            <small class="text-muted">Paiements après cette date</small>
+                                        </div>
+                                        
+                                        <div class="col-md-3">
+                                            <label class="form-label small fw-bold">
+                                                <i class="fas fa-calendar-week me-1"></i> Date de fin
+                                            </label>
+                                            <input type="date" name="date_fin" class="form-control shadow-sm" 
+                                                   value="{{ date_fin_filter|default:'' }}"
+                                                   placeholder="jj/mm/aaaa">
+                                            <small class="text-muted">Paiements avant cette date</small>
+                                        </div>
+                                        
+                                        <div class="col-md-3">
+                                            <label class="form-label small fw-bold">
+                                                <i class="fas fa-clock me-1"></i> Période spécifique
+                                            </label>
+                                            <select name="periode" class="form-select shadow-sm" id="periodeSelect">
+                                                <option value="">📅 Personnalisée</option>
+                                                <option value="aujourdhui" {% if periode_filter == 'aujourdhui' %}selected{% endif %}>📆 Aujourd'hui</option>
+                                                <option value="semaine" {% if periode_filter == 'semaine' %}selected{% endif %}>📊 Cette semaine</option>
+                                                <option value="mois" {% if periode_filter == 'mois' %}selected{% endif %}>📈 Ce mois</option>
+                                                <option value="trimestre" {% if periode_filter == 'trimestre' %}selected{% endif %}>📉 Ce trimestre</option>
+                                                <option value="annee" {% if periode_filter == 'annee' %}selected{% endif %}>📅 Cette année</option>
+                                                <option value="hier" {% if periode_filter == 'hier' %}selected{% endif %}>⬅️ Hier</option>
+                                                <option value="semaine_derniere" {% if periode_filter == 'semaine_derniere' %}selected{% endif %}>⬅️ Semaine dernière</option>
+                                                <option value="mois_dernier" {% if periode_filter == 'mois_dernier' %}selected{% endif %}>⬅️ Mois dernier</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div class="col-md-3">
+                                            <label class="form-label small fw-bold">
+                                                <i class="fas fa-hourglass-half me-1"></i> Période glissante
+                                            </label>
+                                            <select name="periode_glissante" class="form-select shadow-sm">
+                                                <option value="">📊 Aucune</option>
+                                                <option value="7" {% if periode_glissante == '7' %}selected{% endif %}>📆 7 derniers jours</option>
+                                                <option value="15" {% if periode_glissante == '15' %}selected{% endif %}>📊 15 derniers jours</option>
+                                                <option value="30" {% if periode_glissante == '30' %}selected{% endif %}>📈 30 derniers jours</option>
+                                                <option value="60" {% if periode_glissante == '60' %}selected{% endif %}>📉 60 derniers jours</option>
+                                                <option value="90" {% if periode_glissante == '90' %}selected{% endif %}>📅 90 derniers jours</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Indicateurs de filtre date actif -->
+                                    {% if date_debut_filter or date_fin_filter or periode_filter or periode_glissante %}
+                                    <div class="alert alert-info alert-dismissible fade show mt-3 mb-0 py-2" role="alert">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        <strong>Filtre date actif :</strong>
+                                        {% if date_debut_filter %} À partir du {{ date_debut_filter|date:"d/m/Y" }}{% endif %}
+                                        {% if date_fin_filter %} jusqu'au {{ date_fin_filter|date:"d/m/Y" }}{% endif %}
+                                        {% if periode_filter %} Période : {{ periode_filter|cut:"_"|title }}{% endif %}
+                                        {% if periode_glissante %} {{ periode_glissante }} derniers jours{% endif %}
+                                        <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert" aria-label="Fermer" id="clearDateAlert"></button>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Boutons d'action -->
+                        <div class="col-12 mt-3">
+                            <div class="d-flex justify-content-end gap-2">
+                                <button type="submit" class="btn btn-primary px-4 shadow-sm">
+                                    <i class="fas fa-search me-2"></i> Appliquer les filtres
+                                </button>
+                                <a href="{% url 'frais_scolaire:statistiques' %}" class="btn btn-secondary px-4 shadow-sm">
+                                    <i class="fas fa-undo me-2"></i> Tout réinitialiser
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Indicateur de période analysée -->
+    {% if date_debut_filter or date_fin_filter or periode_filter or periode_glissante %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-primary border-0 shadow-sm">
+                <div class="d-flex align-items-center">
+                    <div class="me-3">
+                        <i class="fas fa-chart-line fa-2x text-primary"></i>
+                    </div>
+                    <div>
+                        <h6 class="mb-0 fw-bold">Période d'analyse personnalisée</h6>
+                        <p class="mb-0 small">
+                            Les statistiques ci-dessous sont filtrées sur la période sélectionnée.
+                            {% if date_debut_filter %}Début: <strong>{{ date_debut_filter|date:"d/m/Y" }}</strong>{% endif %}
+                            {% if date_fin_filter %} - Fin: <strong>{{ date_fin_filter|date:"d/m/Y" }}</strong>{% endif %}
+                            {% if periode_filter %} - Période: <strong>{{ periode_filter|cut:"_"|title }}</strong>{% endif %}
+                            {% if periode_glissante %} - <strong>{{ periode_glissante }} derniers jours</strong>{% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Cartes KPI Globales -->
+    <div class="row mb-4 g-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-lg hover-lift">
+                <div class="card-body bg-gradient-primary text-white rounded-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-white-50 mb-1">Total attendu</h6>
+                            <h3 class="mb-0 fw-bold">{{ total_attendu_global|floatformat:0 }} FC</h3>
+                            <small class="text-white-50">Montant à recouvrer</small>
+                        </div>
+                        <div class="bg-white-20 rounded-circle p-3">
+                            <i class="fas fa-chart-line fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-lg hover-lift">
+                <div class="card-body bg-gradient-success text-white rounded-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-white-50 mb-1">Total perçu</h6>
+                            <h3 class="mb-0 fw-bold">{{ total_percu_global|floatformat:0 }} FC</h3>
+                            <small class="text-white-50">Montant déjà encaissé</small>
+                        </div>
+                        <div class="bg-white-20 rounded-circle p-3">
+                            <i class="fas fa-money-bill-wave fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-lg hover-lift">
+                <div class="card-body bg-gradient-warning text-white rounded-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-white-50 mb-1">Solde restant</h6>
+                            <h3 class="mb-0 fw-bold">{{ solde_global|floatformat:0 }} FC</h3>
+                            <small class="text-white-50">Montant à recouvrer</small>
+                        </div>
+                        <div class="bg-white-20 rounded-circle p-3">
+                            <i class="fas fa-exclamation-triangle fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-lg hover-lift">
+                <div class="card-body bg-gradient-info text-white rounded-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-white-50 mb-1">Taux recouvrement</h6>
+                            <h3 class="mb-0 fw-bold">{{ taux_recouvrement_global|floatformat:1 }}%</h3>
+                            <small class="text-white-50">Performance globale</small>
+                        </div>
+                        <div class="bg-white-20 rounded-circle p-3">
+                            <i class="fas fa-percent fa-2x"></i>
+                        </div>
+                    </div>
+                    <div class="progress mt-3 bg-white-30" style="height: 8px;">
+                        <div class="progress-bar bg-white" role="progressbar" style="width: {{ taux_recouvrement_global }}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cartes MASP vs Non MASP -->
+    <div class="row mb-4 g-4">
+        <div class="col-xl-6 col-md-12">
+            <div class="card border-0 shadow-lg overflow-hidden">
+                <div class="card-body bg-gradient-masp text-white p-4">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap">
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center mb-3">
+                                <i class="fas fa-hand-holding-heart fa-2x me-3"></i>
+                                <div>
+                                    <h4 class="mb-0 fw-bold">MASP (Mutualité)</h4>
+                                    <small class="text-white-50">Élèves bénéficiant de tarifs préférentiels</small>
+                                </div>
+                            </div>
+                            <div class="row g-3 mt-2">
+                                <div class="col-4">
+                                    <div class="bg-white-20 rounded-3 p-2 text-center">
+                                        <small class="d-block text-white-50">Élèves</small>
+                                        <strong class="fs-3">{{ stats_masp.nb_eleves }}</strong>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="bg-white-20 rounded-3 p-2 text-center">
+                                        <small class="d-block text-white-50">Total attendu</small>
+                                        <strong class="fs-6">{{ stats_masp.total_attendu|floatformat:0 }} FC</strong>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="bg-white-20 rounded-3 p-2 text-center">
+                                        <small class="d-block text-white-50">Total perçu</small>
+                                        <strong class="fs-6">{{ stats_masp.total_percu|floatformat:0 }} FC</strong>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <small>Recouvrement</small>
+                                    <small class="fw-bold">{{ stats_masp.taux|floatformat:1 }}%</small>
+                                </div>
+                                <div class="progress bg-white-30" style="height: 10px;">
+                                    <div class="progress-bar bg-warning" role="progressbar" style="width: {{ stats_masp.taux }}%"></div>
+                                </div>
+                                <div class="mt-2">
+                                    <span class="badge bg-white-20">
+                                        <i class="fas fa-chart-line me-1"></i> Solde: {{ stats_masp.solde|floatformat:0 }} FC
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-6 col-md-12">
+            <div class="card border-0 shadow-lg overflow-hidden">
+                <div class="card-body bg-gradient-non-masp text-white p-4">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap">
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center mb-3">
+                                <i class="fas fa-users fa-2x me-3"></i>
+                                <div>
+                                    <h4 class="mb-0 fw-bold">Hors MASP (Ordinaire)</h4>
+                                    <small class="text-white-50">Élèves au régime standard</small>
+                                </div>
+                            </div>
+                            <div class="row g-3 mt-2">
+                                <div class="col-4">
+                                    <div class="bg-white-20 rounded-3 p-2 text-center">
+                                        <small class="d-block text-white-50">Élèves</small>
+                                        <strong class="fs-3">{{ stats_non_masp.nb_eleves }}</strong>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="bg-white-20 rounded-3 p-2 text-center">
+                                        <small class="d-block text-white-50">Total attendu</small>
+                                        <strong class="fs-6">{{ stats_non_masp.total_attendu|floatformat:0 }} FC</strong>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="bg-white-20 rounded-3 p-2 text-center">
+                                        <small class="d-block text-white-50">Total perçu</small>
+                                        <strong class="fs-6">{{ stats_non_masp.total_percu|floatformat:0 }} FC</strong>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <small>Recouvrement</small>
+                                    <small class="fw-bold">{{ stats_non_masp.taux|floatformat:1 }}%</small>
+                                </div>
+                                <div class="progress bg-white-30" style="height: 10px;">
+                                    <div class="progress-bar bg-info" role="progressbar" style="width: {{ stats_non_masp.taux }}%"></div>
+                                </div>
+                                <div class="mt-2">
+                                    <span class="badge bg-white-20">
+                                        <i class="fas fa-chart-line me-1"></i> Solde: {{ stats_non_masp.solde|floatformat:0 }} FC
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphiques et tableaux -->
+    <div class="row mb-4 g-4">
+        <div class="col-xl-4 col-lg-12">
+            <div class="card border-0 shadow-lg h-100">
+                <div class="card-header bg-dark text-white py-3">
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-chart-bar me-2"></i> Par trimestre</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="chartTrimestres" height="250"></canvas>
+                    <div class="table-responsive mt-3">
+                        <table class="table table-hover table-sm mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Trimestre</th>
+                                    <th>Attendu</th>
+                                    <th>Perçu</th>
+                                    <th>Taux</th>
+                                    <th>Élèves</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for stat in stats_trimestres %}
+                                <tr class="align-middle">
+                                    <td><span class="badge bg-primary">{{ stat.libelle }}</span></td>
+                                    <td>{{ stat.total_attendu|floatformat:0 }} FC</td>
+                                    <td>{{ stat.total_percu|floatformat:0 }} FC</td>
+                                    <td>
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar {% if stat.taux >= 80 %}bg-success{% elif stat.taux >= 50 %}bg-warning{% else %}bg-danger{% endif %}" style="width: {{ stat.taux }}%">{{ stat.taux|floatformat:1 }}%</div>
+                                        </div>
+                                    </td>
+                                    <td class="text-center">{{ stat.nb_eleves }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-4 col-lg-12">
+            <div class="card border-0 shadow-lg h-100">
+                <div class="card-header bg-dark text-white py-3">
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-chart-pie me-2"></i> Par niveau</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="chartNiveaux" height="250"></canvas>
+                    <div class="table-responsive mt-3">
+                        <table class="table table-hover table-sm mb-0">
+                            <thead class="table-light">
+                                <tr><th>Niveau</th><th>Attendu</th><th>Perçu</th><th>Taux</th></tr>
+                            </thead>
+                            <tbody>
+                                {% for stat in stats_niveaux %}
+                                <tr>
+                                    <td><i class="fas {% if stat.niveau == 'maternel' %}fa-baby-carriage{% elif stat.niveau == 'primaire' %}fa-book{% else %}fa-university{% endif %} me-1"></i> {{ stat.libelle }}</td>
+                                    <td>{{ stat.total_attendu|floatformat:0 }} FC</td>
+                                    <td>{{ stat.total_percu|floatformat:0 }} FC</td>
+                                    <td>
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar bg-info" style="width: {{ stat.taux }}%">{{ stat.taux|floatformat:1 }}%</div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-4 col-lg-12">
+            <div class="card border-0 shadow-lg h-100">
+                <div class="card-header bg-dark text-white py-3">
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-chart-pie me-2"></i> Modes de paiement</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="chartModes" height="250"></canvas>
+                    <div class="table-responsive mt-3">
+                        <table class="table table-hover table-sm mb-0">
+                            <thead class="table-light">
+                                <tr><th>Mode</th><th>Montant</th><th>Nb</th><th>%</th></tr>
+                            </thead>
+                            <tbody>
+                                {% for stat in stats_modes %}
+                                <tr>
+                                    <td><i class="fas {% if stat.mode == 'cash' %}fa-money-bill-wave{% elif stat.mode == 'mobile_money' %}fa-mobile-alt{% elif stat.mode == 'banque' %}fa-building{% elif stat.mode == 'cheque' %}fa-receipt{% else %}fa-credit-card{% endif %} me-1"></i> {{ stat.libelle }}</td>
+                                    <td>{{ stat.total|floatformat:0 }} FC</td>
+                                    <td>{{ stat.nb_paiements }}</td>
+                                    <td>{{ stat.pourcentage|floatformat:1 }}%</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top et mauvais payeurs -->
+    <div class="row mb-4 g-4">
+        <div class="col-xl-6 col-lg-12">
+            <div class="card border-0 shadow-lg">
+                <div class="card-header bg-gradient-success text-white py-3">
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-trophy me-2"></i> Top 10 - Meilleurs payeurs</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="text-center">#</th>
+                                    <th>Nom complet</th>
+                                    <th>Matricule</th>
+                                    <th>Total payé</th>
+                                    <th class="text-center">Taux</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in top_payeurs %}
+                                <tr>
+                                    <td class="text-center fw-bold">
+                                        {% if forloop.counter == 1 %}
+                                            <span class="badge bg-warning text-dark">🥇 1</span>
+                                        {% elif forloop.counter == 2 %}
+                                            <span class="badge bg-secondary">🥈 2</span>
+                                        {% elif forloop.counter == 3 %}
+                                            <span class="badge bg-danger">🥉 3</span>
+                                        {% else %}
+                                            <span class="badge bg-light text-dark">{{ forloop.counter }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <i class="fas fa-user-graduate me-2 text-primary"></i>
+                                        {{ item.eleve.nom }} {{ item.eleve.post_nom }} {{ item.eleve.prenom }}
+                                        {% if item.eleve.est_masp %}
+                                            <span class="badge bg-gradient-masp ms-1">MASP</span>
+                                        {% endif %}
+                                    </td>
+                                    <td><code>{{ item.eleve.matricule }}</code></td>
+                                    <td class="fw-bold text-success">{{ item.total_paye|floatformat:0 }} FC</td>
+                                    <td class="text-center">
+                                        <div class="progress" style="height: 25px; width: 100px; margin: 0 auto;">
+                                            <div class="progress-bar bg-success" style="width: {{ item.taux }}%">{{ item.taux|floatformat:1 }}%</div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="5" class="text-center py-5"><i class="fas fa-info-circle me-2"></i> Aucun paiement enregistré</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-6 col-lg-12">
+            <div class="card border-0 shadow-lg">
+                <div class="card-header bg-gradient-danger text-white py-3">
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-exclamation-circle me-2"></i> Mauvais payeurs (Top 20)</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="text-center">#</th>
+                                    <th>Nom complet</th>
+                                    <th>Matricule</th>
+                                    <th>À payer</th>
+                                    <th>Payé</th>
+                                    <th>Solde</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in mauvais_payeurs %}
+                                <tr>
+                                    <td class="text-center fw-bold">{{ forloop.counter }}</td>
+                                    <td>
+                                        <i class="fas fa-user-graduate me-2 text-danger"></i>
+                                        {{ item.eleve.nom }} {{ item.eleve.post_nom }} {{ item.eleve.prenom }}
+                                        {% if item.eleve.est_masp %}
+                                            <span class="badge bg-gradient-masp ms-1">MASP</span>
+                                        {% endif %}
+                                    </td>
+                                    <td><code>{{ item.eleve.matricule }}</code></td>
+                                    <td>{{ item.total_a_payer|floatformat:0 }} FC</td>
+                                    <td>{{ item.total_paye|floatformat:0 }} FC</td>
+                                    <td class="fw-bold text-danger">{{ item.solde|floatformat:0 }} FC</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="6" class="text-center py-5"><i class="fas fa-check-circle text-success me-2"></i> Aucun mauvais payeur !</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Détail par type de frais -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-lg">
+                <div class="card-header bg-primary text-white py-3">
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-chart-bar me-2"></i> Détail par type de frais</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="chartTypes" height="120"></canvas>
+                    <div class="table-responsive mt-4">
+                        <table class="table table-bordered table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Type de frais</th>
+                                    <th>Total attendu</th>
+                                    <th>Total perçu</th>
+                                    <th>Solde</th>
+                                    <th>Taux de recouvrement</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for stat in stats_types %}
+                                <tr>
+                                    <td><i class="fas fa-tag me-2"></i> {{ stat.libelle }}</td>
+                                    <td class="fw-bold">{{ stat.total_attendu|floatformat:0 }} FC</td>
+                                    <td class="text-success">{{ stat.total_percu|floatformat:0 }} FC</td>
+                                    <td class="{% if stat.solde > 0 %}text-danger{% else %}text-success{% endif %} fw-bold">{{ stat.solde|floatformat:0 }} FC</td>
+                                    <td style="width: 200px;">
+                                        <div class="progress" style="height: 30px;">
+                                            <div class="progress-bar {% if stat.taux >= 80 %}bg-success{% elif stat.taux >= 50 %}bg-warning{% else %}bg-danger{% endif %} progress-bar-striped" style="width: {{ stat.taux }}%">
+                                                {{ stat.taux|floatformat:1 }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                <tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-secondary fw-bold">
+                                <tr>
+                                    <td>TOTAL GÉNÉRAL</td>
+                                    <td>{{ total_attendu_global|floatformat:0 }} FC</td>
+                                    <td class="text-success">{{ total_percu_global|floatformat:0 }} FC</td>
+                                    <td class="{% if solde_global > 0 %}text-danger{% else %}text-success{% endif %}">{{ solde_global|floatformat:0 }} FC</td>
+                                    <td>
+                                        <div class="progress" style="height: 30px;">
+                                            <div class="progress-bar bg-primary" style="width: {{ taux_recouvrement_global }}%">
+                                                {{ taux_recouvrement_global|floatformat:1 }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Gradients */
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .bg-gradient-success {
+        background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+    }
+    .bg-gradient-warning {
+        background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+    }
+    .bg-gradient-info {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+    .bg-gradient-masp {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    .bg-gradient-non-masp {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+    .bg-gradient-danger {
+        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    }
+    
+    /* Effets */
+    .hover-lift {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .hover-lift:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 30px rgba(0,0,0,0.2) !important;
+    }
+    .bg-white-20 {
+        background-color: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(5px);
+    }
+    .bg-white-30 {
+        background-color: rgba(255, 255, 255, 0.3);
+    }
+    .text-white-50 {
+        color: rgba(255, 255, 255, 0.8);
+    }
+    
+    /* Progress bars */
+    .progress {
+        border-radius: 20px;
+        overflow: hidden;
+    }
+    .progress-bar {
+        transition: width 1s ease-in-out;
+        font-size: 11px;
+        font-weight: bold;
+        line-height: 30px;
+    }
+    
+    /* Cards */
+    .card {
+        border-radius: 15px;
+        overflow: hidden;
+    }
+    .card-header {
+        border-bottom: none;
+    }
+    
+    /* Tables */
+    .table-hover tbody tr:hover {
+        background-color: rgba(102, 126, 234, 0.05);
+        transition: background-color 0.3s;
+    }
+    
+    /* Animations */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .card {
+        animation: fadeInUp 0.5s ease-out;
+    }
+    
+    /* Style pour l'impression */
+    @media print {
+        .btn-group, .card-header .btn, form, .btn-print-hide {
+            display: none !important;
+        }
+        .card {
+            box-shadow: none !important;
+            border: 1px solid #ddd !important;
+            break-inside: avoid;
+        }
+        body {
+            background: white !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        .container-fluid {
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        .bg-gradient-primary, .bg-gradient-success, .bg-gradient-warning, .bg-gradient-info,
+        .bg-gradient-masp, .bg-gradient-non-masp {
+            background: #f8f9fa !important;
+            color: #333 !important;
+            border: 1px solid #ddd;
+        }
+        .text-white, .text-white-50 {
+            color: #333 !important;
+        }
+        .progress {
+            border: 1px solid #ddd;
+            background: #f0f0f0;
+        }
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .container-fluid {
+            padding: 10px;
+        }
+        .card-body {
+            padding: 15px;
+        }
+        .table {
+            font-size: 12px;
+        }
+    }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Graphique des trimestres
+    const ctxTrimestres = document.getElementById('chartTrimestres').getContext('2d');
+    new Chart(ctxTrimestres, {
+        type: 'bar',
+        data: {
+            labels: [{% for stat in stats_trimestres %}'{{ stat.libelle }}',{% endfor %}],
+            datasets: [
+                {
+                    label: 'Total attendu',
+                    data: [{% for stat in stats_trimestres %}{{ stat.total_attendu }},{% endfor %}],
+                    backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 2,
+                    borderRadius: 8
+                },
+                {
+                    label: 'Total perçu',
+                    data: [{% for stat in stats_trimestres %}{{ stat.total_percu }},{% endfor %}],
+                    backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 2,
+                    borderRadius: 8
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { position: 'top', labels: { font: { size: 12 } } },
+                tooltip: { callbacks: { label: function(context) { return context.dataset.label + ': ' + context.raw.toLocaleString() + ' FC'; } } }
+            },
+            scales: { y: { beginAtZero: true, title: { display: true, text: 'Montant (FC)', font: { weight: 'bold' } }, ticks: { callback: function(value) { return value.toLocaleString() + ' FC'; } } } }
+        }
+    });
+
+    // Graphique des niveaux
+    const ctxNiveaux = document.getElementById('chartNiveaux').getContext('2d');
+    new Chart(ctxNiveaux, {
+        type: 'doughnut',
+        data: {
+            labels: [{% for stat in stats_niveaux %}'{{ stat.libelle }}',{% endfor %}],
+            datasets: [{
+                data: [{% for stat in stats_niveaux %}{{ stat.total_percu }},{% endfor %}],
+                backgroundColor: ['#667eea', '#764ba2', '#f093fb'],
+                borderWidth: 0,
+                hoverOffset: 10
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { position: 'bottom', labels: { font: { size: 11 } } },
+                tooltip: { callbacks: { label: function(context) { return context.label + ': ' + context.raw.toLocaleString() + ' FC'; } } }
+            }
+        }
+    });
+
+    // Graphique des modes de paiement
+    const ctxModes = document.getElementById('chartModes').getContext('2d');
+    new Chart(ctxModes, {
+        type: 'pie',
+        data: {
+            labels: [{% for stat in stats_modes %}'{{ stat.libelle }} ({{ stat.pourcentage|floatformat:1 }}%)',{% endfor %}],
+            datasets: [{
+                data: [{% for stat in stats_modes %}{{ stat.total }},{% endfor %}],
+                backgroundColor: ['#4facfe', '#00f2fe', '#43e97b', '#f093fb', '#f5576c'],
+                borderWidth: 0,
+                hoverOffset: 10
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { position: 'bottom', labels: { font: { size: 10 } } },
+                tooltip: { callbacks: { label: function(context) { return context.label + ': ' + context.raw.toLocaleString() + ' FC'; } } }
+            }
+        }
+    });
+
+    // Graphique des types de frais
+    const ctxTypes = document.getElementById('chartTypes').getContext('2d');
+    new Chart(ctxTypes, {
+        type: 'bar',
+        data: {
+            labels: [{% for stat in stats_types %}'{{ stat.libelle|truncatechars:12 }}',{% endfor %}],
+            datasets: [
+                {
+                    label: 'Total attendu',
+                    data: [{% for stat in stats_types %}{{ stat.total_attendu }},{% endfor %}],
+                    backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 2,
+                    borderRadius: 8
+                },
+                {
+                    label: 'Total perçu',
+                    data: [{% for stat in stats_types %}{{ stat.total_percu }},{% endfor %}],
+                    backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 2,
+                    borderRadius: 8
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { position: 'top', labels: { font: { size: 11 } } },
+                tooltip: { callbacks: { label: function(context) { return context.dataset.label + ': ' + context.raw.toLocaleString() + ' FC'; } } }
+            },
+            scales: { y: { beginAtZero: true, title: { display: true, text: 'Montant (FC)' }, ticks: { callback: function(value) { return value.toLocaleString(); } } } }
+        }
+    });
+    
+    // Gestion des dates : période prédéfinie
+    const periodeSelect = document.getElementById('periodeSelect');
+    const dateDebutInput = document.querySelector('input[name="date_debut"]');
+    const dateFinInput = document.querySelector('input[name="date_fin"]');
+    
+    if (periodeSelect) {
+        periodeSelect.addEventListener('change', function() {
+            const today = new Date();
+            const formatDate = (date) => date.toISOString().split('T')[0];
+            
+            switch(this.value) {
+                case 'aujourdhui':
+                    dateDebutInput.value = formatDate(today);
+                    dateFinInput.value = formatDate(today);
+                    break;
+                case 'hier':
+                    const yesterday = new Date(today);
+                    yesterday.setDate(today.getDate() - 1);
+                    dateDebutInput.value = formatDate(yesterday);
+                    dateFinInput.value = formatDate(yesterday);
+                    break;
+                case 'semaine':
+                    const weekStart = new Date(today);
+                    weekStart.setDate(today.getDate() - today.getDay());
+                    dateDebutInput.value = formatDate(weekStart);
+                    dateFinInput.value = formatDate(today);
+                    break;
+                case 'semaine_derniere':
+                    const lastWeekStart = new Date(today);
+                    lastWeekStart.setDate(today.getDate() - today.getDay() - 7);
+                    const lastWeekEnd = new Date(lastWeekStart);
+                    lastWeekEnd.setDate(lastWeekStart.getDate() + 6);
+                    dateDebutInput.value = formatDate(lastWeekStart);
+                    dateFinInput.value = formatDate(lastWeekEnd);
+                    break;
+                case 'mois':
+                    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+                    dateDebutInput.value = formatDate(monthStart);
+                    dateFinInput.value = formatDate(today);
+                    break;
+                case 'mois_dernier':
+                    const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                    const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+                    dateDebutInput.value = formatDate(lastMonthStart);
+                    dateFinInput.value = formatDate(lastMonthEnd);
+                    break;
+                case 'trimestre':
+                    const quarterStart = new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) * 3, 1);
+                    dateDebutInput.value = formatDate(quarterStart);
+                    dateFinInput.value = formatDate(today);
+                    break;
+                case 'annee':
+                    const yearStart = new Date(today.getFullYear(), 0, 1);
+                    dateDebutInput.value = formatDate(yearStart);
+                    dateFinInput.value = formatDate(today);
+                    break;
+                default:
+                    // Ne rien faire si personnalisé
+                    break;
+            }
+        });
+    }
+    
+    // Réinitialisation des dates
+    const resetDatesBtn = document.getElementById('resetDatesBtn');
+    if (resetDatesBtn) {
+        resetDatesBtn.addEventListener('click', function() {
+            dateDebutInput.value = '';
+            dateFinInput.value = '';
+            if (periodeSelect) periodeSelect.value = '';
+            document.querySelector('select[name="periode_glissante"]').value = '';
+        });
+    }
+    
+    // Effacement de l'alerte
+    const clearDateAlert = document.getElementById('clearDateAlert');
+    if (clearDateAlert) {
+        clearDateAlert.addEventListener('click', function() {
+            dateDebutInput.value = '';
+            dateFinInput.value = '';
+            if (periodeSelect) periodeSelect.value = '';
+            document.querySelector('select[name="periode_glissante"]').value = '';
+        });
+    }
+});
+
+// Impression
+document.getElementById('btnPrint')?.addEventListener('click', function() { window.print(); });
+</script>
+{% endblock %}

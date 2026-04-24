@@ -1,0 +1,104 @@
+{% extends 'noyau/base.html' %}
+{% load static %}
+
+{% block title %}Configuration année scolaire{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-5">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-plus-circle"></i> Nouvelle année scolaire</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Année scolaire *</label>
+                            {{ form.annee }}
+                            <small class="text-muted">Ex: 2025-2026</small>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Date début *</label>
+                                    {{ form.date_debut }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Date fin *</label>
+                                    {{ form.date_fin }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            {{ form.est_active }}
+                            <label class="form-check-label">
+                                Activer cette année scolaire
+                            </label>
+                            <small class="text-muted d-block">
+                                (Une seule année peut être active à la fois)
+                            </small>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-save"></i> Enregistrer
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-7">
+            <div class="card shadow-sm">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="fas fa-list"></i> Années scolaires enregistrées</h5>
+                </div>
+                <div class="card-body">
+                    {% if annees %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Année</th>
+                                    <th>Début</th>
+                                    <th>Fin</th>
+                                    <th>Statut</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for annee in annees %}
+                                <tr>
+                                    <td>{{ annee.annee }}</td>
+                                    <td>{{ annee.date_debut|date:"d/m/Y" }}</td>
+                                    <td>{{ annee.date_fin|date:"d/m/Y" }}</td>
+                                    <td>
+                                        {% if annee.est_active %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-check-circle"></i> Active
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Inactive</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Aucune année scolaire enregistrée
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

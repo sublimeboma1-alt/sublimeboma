@@ -1,0 +1,29 @@
+{% extends 'noyau/base.html' %}
+
+{% block title %}Supprimer dépense{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-6 offset-md-3">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h4>Supprimer la dépense</h4>
+                </div>
+                <div class="card-body">
+                    <p>Êtes-vous sûr de vouloir supprimer cette dépense ?</p>
+                    <p><strong>Code:</strong> {{ depense.code }}</p>
+                    <p><strong>Titre:</strong> {{ depense.titre }}</p>
+                    <p><strong>Montant:</strong> {{ depense.montant|floatformat:0 }} FC</p>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger w-100">Oui, supprimer</button>
+                        <a href="{% url 'depense:liste_depenses' %}" class="btn btn-secondary w-100 mt-2">Annuler</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

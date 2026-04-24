@@ -1,0 +1,498 @@
+{% extends 'noyau/base.html' %}
+{% load static %}
+
+{% block title %}Situation financière des élèves - Complexe Scolaire Sublime{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Styles spécifiques pour la page des frais */
+    .filter-section {
+        background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+        border-radius: 24px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        border: 1px solid #eef2f6;
+        transition: all 0.3s ease;
+    }
+    
+    .filter-section:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    
+    .stat-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 0.75rem;
+        letter-spacing: 0.3px;
+    }
+    
+    .stat-badge i {
+        margin-right: 6px;
+    }
+    
+    .stat-badge.paye {
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+        color: #065f46;
+    }
+    
+    .stat-badge.partiel {
+        background: linear-gradient(135deg, #fed7aa 0%, #fde68a 100%);
+        color: #92400e;
+    }
+    
+    .stat-badge.non-paye {
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        color: #991b1b;
+    }
+    
+    .stat-badge.aucun {
+        background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+        color: #475569;
+    }
+    
+    .table-container {
+        background: white;
+        border-radius: 20px;
+        overflow: hidden;
+        border: 1px solid #eef2f6;
+    }
+    
+    .table-frais {
+        margin-bottom: 0;
+    }
+    
+    .table-frais thead th {
+        background: #0f172a;
+        color: white;
+        font-weight: 600;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 1rem;
+        border-bottom: none;
+    }
+    
+    .table-frais tbody tr {
+        transition: all 0.2s ease;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    
+    .table-frais tbody tr:hover {
+        background: #f8fafc;
+        transform: translateX(4px);
+    }
+    
+    .table-frais tbody td {
+        padding: 1rem;
+        vertical-align: middle;
+        font-size: 0.85rem;
+    }
+    
+    .btn-action {
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        border-radius: 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        margin: 0 2px;
+    }
+    
+    .btn-action.btn-info {
+        background: #e0f2fe;
+        color: #0284c7;
+        border: none;
+    }
+    
+    .btn-action.btn-info:hover {
+        background: #0284c7;
+        color: white;
+        transform: translateY(-2px);
+    }
+    
+    .btn-action.btn-success {
+        background: #d1fae5;
+        color: #059669;
+        border: none;
+    }
+    
+    .btn-action.btn-success:hover {
+        background: #059669;
+        color: white;
+        transform: translateY(-2px);
+    }
+    
+    .btn-action i {
+        font-size: 0.85rem;
+    }
+    
+    .montant {
+        font-weight: 600;
+        font-family: 'Inter', monospace;
+    }
+    
+    .montant.a-payer {
+        color: #dc2626;
+    }
+    
+    .montant.paye {
+        color: #10b981;
+    }
+    
+    .montant.solde {
+        color: #f59e0b;
+    }
+    
+    .badge-statut {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+    }
+    
+    .pagination-custom {
+        margin-top: 2rem;
+    }
+    
+    .pagination-custom .page-link {
+        border: none;
+        margin: 0 4px;
+        border-radius: 12px;
+        color: #475569;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+    
+    .pagination-custom .page-link:hover {
+        background: #3b82f6;
+        color: white;
+        transform: translateY(-1px);
+    }
+    
+    .pagination-custom .active .page-link {
+        background: #3b82f6;
+        color: white;
+        box-shadow: 0 4px 12px rgba(59,130,246,0.3);
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+    }
+    
+    .empty-state i {
+        font-size: 4rem;
+        color: #cbd5e1;
+        margin-bottom: 1rem;
+    }
+    
+    .empty-state p {
+        color: #64748b;
+        font-size: 0.9rem;
+    }
+    
+    @media (max-width: 768px) {
+        .filter-section {
+            padding: 1rem;
+        }
+        
+        .table-frais thead th {
+            font-size: 0.7rem;
+            padding: 0.75rem;
+        }
+        
+        .table-frais tbody td {
+            padding: 0.75rem;
+            font-size: 0.75rem;
+        }
+        
+        .btn-action {
+            width: 28px;
+            height: 28px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 mt-4">
+    <!-- En-tête de la page -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h2 class="h3 fw-bold mb-1">
+                <i class="fas fa-money-bill-wave text-primary me-2"></i>
+                Situation financière
+            </h2>
+            <p class="text-muted small mb-0">
+                <i class="fas fa-chart-line me-1"></i>
+                Suivi des paiements et des soldes par élève
+            </p>
+        </div>
+        <div>
+            <a href="{% url 'frais_scolaire:dashboard_frais' %}" class="btn btn-outline-primary btn-sm">
+                <i class="fas fa-chart-line me-1"></i> Dashboard
+            </a>
+            <a href="{% url 'frais_scolaire:statistiques' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-chart-bar me-1"></i> Statistiques
+            </a>
+        </div>
+    </div>
+    
+    <!-- Section filtres -->
+    <div class="filter-section">
+        <form method="get" id="filterForm">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold small text-uppercase">
+                        <i class="fas fa-layer-group me-1"></i> Niveau
+                    </label>
+                    {{ form.niveau }}
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold small text-uppercase">
+                        <i class="fas fa-door-open me-1"></i> Classe
+                    </label>
+                    {{ form.classe }}
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold small text-uppercase">
+                        <i class="fas fa-graduation-cap me-1"></i> Option
+                    </label>
+                    {{ form.option }}
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold small text-uppercase">
+                        <i class="fas fa-calendar-alt me-1"></i> Trimestre
+                    </label>
+                    {{ form.trimestre }}
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold small text-uppercase">
+                        <i class="fas fa-tag me-1"></i> Statut
+                    </label>
+                    {{ form.statut }}
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label fw-semibold small text-uppercase">
+                        <i class="fas fa-search me-1"></i> Recherche
+                    </label>
+                    {{ form.recherche }}
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-filter me-2"></i> Appliquer les filtres
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Résumé statistique -->
+    <div class="row mb-4">
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted small text-uppercase">Total élèves</span>
+                        <h3 class="mb-0 mt-1 fw-bold">{{ page_obj.paginator.count }}</h3>
+                    </div>
+                    <div class="rounded-circle bg-primary bg-opacity-10 p-3">
+                        <i class="fas fa-users text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted small text-uppercase">Payé</span>
+                        <h3 class="mb-0 mt-1 fw-bold text-success">
+                            {{ total_paye|floatformat:0 }} FC
+                        </h3>
+                    </div>
+                    <div class="rounded-circle bg-success bg-opacity-10 p-3">
+                        <i class="fas fa-check-circle text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted small text-uppercase">Solde restant</span>
+                        <h3 class="mb-0 mt-1 fw-bold text-warning">
+                            {{ total_solde|floatformat:0 }} FC
+                        </h3>
+                    </div>
+                    <div class="rounded-circle bg-warning bg-opacity-10 p-3">
+                        <i class="fas fa-clock text-warning"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted small text-uppercase">Taux recouvrement</span>
+                        <h3 class="mb-0 mt-1 fw-bold">
+                            {{ taux_recouvrement|floatformat:1 }}%
+                        </h3>
+                    </div>
+                    <div class="rounded-circle bg-info bg-opacity-10 p-3">
+                        <i class="fas fa-chart-pie text-info"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tableau des résultats -->
+    <div class="table-container">
+        <div class="table-responsive">
+            <table class="table table-frais">
+                <thead>
+                    <tr>
+                        <th>Matricule</th>
+                        <th>Élève</th>
+                        <th>Classe</th>
+                        <th>Option</th>
+                        <th class="text-end">À payer</th>
+                        <th class="text-end">Payé</th>
+                        <th class="text-end">Solde</th>
+                        <th>Statut</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in page_obj %}
+                    <tr>
+                        <td>
+                            <span class="fw-mono">{{ item.eleve.matricule }}</span>
+                        </td>
+                        <td>
+                            <div class="fw-semibold">{{ item.eleve.nom }} {{ item.eleve.post_nom }}</div>
+                            <div class="small text-muted">{{ item.eleve.prenom }}</div>
+                        </td>
+                        <td>{{ item.eleve.classe|default:"-" }}</td>
+                        <td>{{ item.option|default:"-" }}</td>
+                        <td class="text-end montant a-payer">{{ item.total_a_payer|floatformat:0 }} FC</td>
+                        <td class="text-end montant paye">{{ item.total_paye|floatformat:0 }} FC</td>
+                        <td class="text-end montant solde">{{ item.solde|floatformat:0 }} FC</td>
+                        <td>
+                            {% if item.statut == 'paye' %}
+                                <span class="badge-statut badge bg-success">
+                                    <i class="fas fa-check-circle me-1"></i> Payé
+                                </span>
+                            {% elif item.statut == 'partiel' %}
+                                <span class="badge-statut badge bg-warning">
+                                    <i class="fas fa-clock me-1"></i> Partiel
+                                </span>
+                            {% elif item.statut == 'non_paye' %}
+                                <span class="badge-statut badge bg-danger">
+                                    <i class="fas fa-times-circle me-1"></i> Non payé
+                                </span>
+                            {% else %}
+                                <span class="badge-statut badge bg-secondary">
+                                    <i class="fas fa-info-circle me-1"></i> Aucun frais
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="d-flex justify-content-center gap-1">
+                                <a href="{% url 'frais_scolaire:detail_eleve_frais' item.eleve.pk %}" 
+                                   class="btn-action btn-info" data-bs-toggle="tooltip" title="Détails">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{% url 'frais_scolaire:enregistrer_paiement' item.eleve.pk %}" 
+                                   class="btn-action btn-success" data-bs-toggle="tooltip" title="Enregistrer paiement">
+                                    <i class="fas fa-money-bill"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9">
+                            <div class="empty-state">
+                                <i class="fas fa-inbox"></i>
+                                <p class="mb-0">Aucun élève trouvé</p>
+                                <small class="text-muted">Essayez de modifier vos critères de recherche</small>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <nav class="pagination-custom">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                    <i class="fas fa-angle-double-left"></i>
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                    <i class="fas fa-angle-left"></i>
+                </a>
+            </li>
+            {% endif %}
+            
+            <li class="page-item active">
+                <span class="page-link">
+                    Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+                </span>
+            </li>
+            
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                    <i class="fas fa-angle-right"></i>
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                    <i class="fas fa-angle-double-right"></i>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+{% block extra_js %}
+<script>
+    // Activation des tooltips
+    document.addEventListener('DOMContentLoaded', function() {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function(tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+        
+        // Smooth animation sur les filtres
+        const filterForm = document.getElementById('filterForm');
+        if (filterForm) {
+            filterForm.addEventListener('submit', function(e) {
+                const btn = this.querySelector('button[type="submit"]');
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Filtrage...';
+                btn.disabled = true;
+            });
+        }
+    });
+</script>
+{% endblock %}
+{% endblock %}

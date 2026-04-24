@@ -1,0 +1,169 @@
+{% extends 'noyau/base.html' %}
+{% load static %}
+
+{% block title %}Créer un élève{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Créer un nouvel élève</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data" id="eleve-form">
+                        {% csrf_token %}
+                        
+                        <!-- Sélection de la classe -->
+                        <div class="alert alert-info">
+                            <h5>Étape 1: Sélectionnez la classe</h5>
+                            
+                            <!-- Champ niveau du formulaire form_classe -->
+                            <div class="mb-3">
+                                <label for="{{ form_classe.niveau.id_for_label }}" class="form-label">Niveau *</label>
+                                {{ form_classe.niveau }}
+                            </div>
+                            
+                            <!-- Champ classe maternelle -->
+                            <div class="mb-3" id="div_classe_maternel" style="display: none;">
+                                <label for="{{ form_classe.classe_maternel.id_for_label }}" class="form-label">Classe maternelle *</label>
+                                {{ form_classe.classe_maternel }}
+                            </div>
+                            
+                            <!-- Champ classe primaire -->
+                            <div class="mb-3" id="div_classe_primaire" style="display: none;">
+                                <label for="{{ form_classe.classe_primaire.id_for_label }}" class="form-label">Classe primaire *</label>
+                                {{ form_classe.classe_primaire }}
+                            </div>
+                            
+                            <!-- Champ classe humanité -->
+                            <div class="mb-3" id="div_classe_humanite" style="display: none;">
+                                <label for="{{ form_classe.classe_humanite.id_for_label }}" class="form-label">Classe humanité *</label>
+                                {{ form_classe.classe_humanite }}
+                            </div>
+                            
+                            <!-- Champ section -->
+                            <div class="mb-3" id="div_section" style="display: none;">
+                                <label for="{{ form_classe.section.id_for_label }}" class="form-label">Section *</label>
+                                {{ form_classe.section }}
+                            </div>
+                        </div>
+                        
+                        <!-- Informations de l'élève -->
+                        <div class="alert alert-success">
+                            <h5>Étape 2: Informations personnelles</h5>
+                            
+                            {% for field in form %}
+                                <div class="mb-3">
+                                    <label for="{{ field.id_for_label }}" class="form-label">
+                                        {{ field.label }}
+                                        {% if field.field.required %}<span class="text-danger">*</span>{% endif %}
+                                    </label>
+                                    {{ field }}
+                                    {% if field.help_text %}
+                                        <small class="form-text text-muted">{{ field.help_text }}</small>
+                                    {% endif %}
+                                    {% for error in field.errors %}
+                                        <div class="alert alert-danger mt-1">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">Enregistrer l'élève</button>
+                            <a href="{% url 'eleves:liste_eleves' %}" class="btn btn-secondary">Annuler</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// JavaScript pour afficher/masquer les champs selon le niveau
+document.addEventListener('DOMContentLoaded', function() {
+    const niveauSelect = document.querySelector('#id_niveau');
+    const divClasseMaternel = document.querySelector('#div_classe_maternel');
+    const divClassePrimaire = document.querySelector('#div_classe_primaire');
+    const divClasseHumanite = document.querySelector('#div_classe_humanite');
+    const divSection = document.querySelector('#div_section');
+    
+    function toggleClasseFields() {
+        const niveau = niveauSelect.value;
+        
+        // Cacher tous
+        if (divClasseMaternel) divClasseMaternel.style.display = 'none';
+        if (divClassePrimaire) divClassePrimaire.style.display = 'none';
+        if (divClasseHumanite) divClasseHumanite.style.display = 'none';
+        if (divSection) divSection.style.display = 'none';
+        
+        // Afficher selon le niveau
+        if (niveau === 'maternel') {
+            if (divClasseMaternel) divClasseMaternel.style.display = 'block';
+        } else if (niveau === 'primaire') {
+            if (divClassePrimaire) divClassePrimaire.style.display = 'block';
+        } else if (niveau === 'humanite') {
+            if (divClasseHumanite) divClasseHumanite.style.display = 'block';
+            if (divSection) divSection.style.display = 'block';
+        }
+    }
+    
+    // Écouter le changement
+    if (niveauSelect) {
+        niveauSelect.addEventListener('change', toggleClasseFields);
+        // Déclencher au chargement
+        toggleClasseFields();
+    }
+    
+    // Rendre les champs requis dynamiquement
+    function updateRequiredFields() {
+        const niveau = niveauSelect ? niveauSelect.value : '';
+        
+        // Désactiver tous les champs classe
+        const classeMaternel = document.querySelector('#id_classe_maternel');
+        const classePrimaire = document.querySelector('#id_classe_primaire');
+        const classeHumanite = document.querySelector('#id_classe_humanite');
+        
+        if (classeMaternel) classeMaternel.required = false;
+        if (classePrimaire) classePrimaire.required = false;
+        if (classeHumanite) classeHumanite.required = false;
+        
+        // Activer uniquement le champ correspondant au niveau
+        if (niveau === 'maternel' && classeMaternel) {
+            classeMaternel.required = true;
+        } else if (niveau === 'primaire' && classePrimaire) {
+            classePrimaire.required = true;
+        } else if (niveau === 'humanite' && classeHumanite) {
+            classeHumanite.required = true;
+        }
+    }
+    
+    if (niveauSelect) {
+        niveauSelect.addEventListener('change', updateRequiredFields);
+        updateRequiredFields();
+    }
+});
+</script>
+
+<style>
+    /* Style pour les erreurs */
+    .errorlist {
+        color: red;
+        list-style: none;
+        padding-left: 0;
+        margin-top: 5px;
+    }
+    
+    /* Amélioration des champs */
+    input, select, textarea {
+        margin-top: 5px;
+    }
+    
+    .alert {
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
