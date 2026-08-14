@@ -79,6 +79,7 @@ function FraisScolairesPage({ initialTab }) {
     if (action === 'fees.years') { setTab('years'); window.location.hash = 'frais-annees' }
     if (action === 'fees.tariffs') { setTab('tariffs'); window.location.hash = 'frais-tarifs' }
     if (action === 'fees.apply') { setTab('apply'); window.location.hash = 'frais-appliquer' }
+    if (action === 'exports.open') { window.location.hash = 'exports' }
     if (action === 'finances.depenses') { window.location.hash = 'depenses' }
     if (action === 'session.logout') signOut()
   }
