@@ -1,3 +1,1 @@
-from django.contrib import admin
-
-# Register your models here.
+# Les utilisateurs restent geres par l'admin Django standard.

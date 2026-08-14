@@ -34,12 +34,39 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.chart import BarChart, Reference, PieChart
 from openpyxl.utils import get_column_letter
 import csv
-from .models import Classe, Eleve
+from .models import (
+    Classe,
+    Eleve,
+    NiveauClasse,
+    ClasseMaternelle,
+    ClassePrimaire,
+    ClasseHumanite,
+    SectionHumanite,
+    Sexe,
+    StatutEleve,
+)
+
+
+class ReferenceAdmin(admin.ModelAdmin):
+    list_display = ['code', 'libelle', 'est_actif']
+    list_filter = ['est_actif']
+    search_fields = ['code', 'libelle']
+    list_editable = ['libelle', 'est_actif']
+
+
+admin.site.register(NiveauClasse, ReferenceAdmin)
+admin.site.register(ClasseMaternelle, ReferenceAdmin)
+admin.site.register(ClassePrimaire, ReferenceAdmin)
+admin.site.register(ClasseHumanite, ReferenceAdmin)
+admin.site.register(SectionHumanite, ReferenceAdmin)
+admin.site.register(Sexe, ReferenceAdmin)
+admin.site.register(StatutEleve, ReferenceAdmin)
+
 
 class ClasseAdmin(admin.ModelAdmin):
     list_display = ['__str__', 'niveau', 'get_classe_complete', 'section', 'total_eleves']
     list_filter = ['niveau']
-    search_fields = ['classe_primaire', 'classe_humanite', 'section']
+    search_fields = ['classe_primaire__libelle', 'classe_humanite__libelle', 'section__libelle']
     list_per_page = 20
     
     fieldsets = (
@@ -57,27 +84,25 @@ class ClasseAdmin(admin.ModelAdmin):
     )
     
     def get_classe_complete(self, obj):
-        if obj.niveau == 'primaire' and obj.classe_primaire:
-            dict_primaire = dict(obj.CLASSE_PRIMAIRE_CHOICES)
-            return dict_primaire.get(obj.classe_primaire, obj.classe_primaire)
-        elif obj.niveau == 'humanite' and obj.classe_humanite:
-            dict_humanite = dict(obj.CLASSE_HUMANITE_CHOICES)
-            return dict_humanite.get(obj.classe_humanite, obj.classe_humanite)
+        if obj.niveau_id == 'primaire' and obj.classe_primaire:
+            return obj.classe_primaire
+        elif obj.niveau_id == 'humanite' and obj.classe_humanite:
+            return obj.classe_humanite
         return "-"
     get_classe_complete.short_description = "Classe"
     
     def total_eleves(self, obj):
-        count = Eleve.objects.filter(classe=obj, statut='actif').count()
+        count = Eleve.objects.filter(classe=obj, statut_id='actif').count()
         return format_html('<span style="color: #4CAF50; font-weight: bold;">{}</span>', count)
     total_eleves.short_description = "Effectif actif"
 
 class EleveAdmin(admin.ModelAdmin):
-    list_display = ['matricule', 'nom_complet', 'classe', 'sexe', 'age', 'statut', 'date_inscription', 'photo_preview', 'actions_buttons']
-    list_filter = ['statut', 'sexe', 'classe__niveau', 'classe', 'date_inscription']
+    list_display = ['matricule', 'nom_complet', 'classe', 'annee_scolaire', 'sexe', 'age', 'statut', 'date_inscription', 'photo_preview', 'actions_buttons']
+    list_filter = ['annee_scolaire', 'statut', 'sexe', 'classe__niveau', 'classe', 'date_inscription']
     search_fields = ['matricule', 'nom', 'post_nom', 'prenom', 'telephone', 'email']
     list_per_page = 50
     date_hierarchy = 'date_inscription'
-    list_select_related = ['classe', 'created_by']
+    list_select_related = ['annee_scolaire', 'classe', 'sexe', 'statut', 'created_by']
     
     fieldsets = (
         ('Informations personnelles', {
@@ -87,7 +112,7 @@ class EleveAdmin(admin.ModelAdmin):
             'fields': ('adresse', 'telephone', 'email')
         }),
         ('Informations académiques', {
-            'fields': ('classe', 'date_inscription', 'statut')
+            'fields': ('classe', 'annee_scolaire', 'date_inscription', 'statut')
         }),
         ('Informations système', {
             'fields': ('matricule', 'created_by', 'created_at', 'updated_at'),
@@ -170,9 +195,9 @@ class EleveAdmin(admin.ModelAdmin):
             'title': 'Centre de rapports - Complexe Scolaire Sublime',
             'opts': self.model._meta,
             'total_eleves': Eleve.objects.count(),
-            'total_actifs': Eleve.objects.filter(statut='actif').count(),
-            'total_garcons': Eleve.objects.filter(sexe='M').count(),
-            'total_filles': Eleve.objects.filter(sexe='F').count(),
+            'total_actifs': Eleve.objects.filter(statut_id='actif').count(),
+            'total_garcons': Eleve.objects.filter(sexe_id='M').count(),
+            'total_filles': Eleve.objects.filter(sexe_id='F').count(),
             'classes': Classe.objects.all(),
             'current_date': timezone.now(),
         }
@@ -197,9 +222,9 @@ class EleveAdmin(admin.ModelAdmin):
         if classe_id:
             queryset = queryset.filter(classe_id=classe_id)
         if statut:
-            queryset = queryset.filter(statut=statut)
+            queryset = queryset.filter(statut_id=statut)
         if sexe:
-            queryset = queryset.filter(sexe=sexe)
+            queryset = queryset.filter(sexe_id=sexe)
         if date_debut:
             queryset = queryset.filter(date_inscription__gte=date_debut)
         if date_fin:
@@ -215,14 +240,15 @@ class EleveAdmin(admin.ModelAdmin):
                 'Prénom': eleve.prenom,
                 'Nom complet': f"{eleve.nom} {eleve.post_nom} {eleve.prenom}",
                 'Classe': eleve.classe.__str__() if eleve.classe else 'Non assigné',
-                'Niveau': eleve.classe.niveau if eleve.classe else 'Non assigné',
-                'Sexe': 'Masculin' if eleve.sexe == 'M' else 'Féminin',
+                'Niveau': str(eleve.classe.niveau) if eleve.classe else 'Non assigné',
+                'Sexe': eleve.get_sexe_display(),
                 'Date de naissance': eleve.date_naissance,
                 'Âge': self.calculer_age(eleve.date_naissance) if eleve.date_naissance else None,
                 'Adresse': eleve.adresse,
                 'Téléphone': eleve.telephone,
                 'Email': eleve.email,
-                'Statut': dict(Eleve.STATUT_CHOICES).get(eleve.statut, eleve.statut),
+                'Mutualité MASP': 'Oui' if eleve.est_masp else 'Non',
+                'Statut': eleve.get_statut_display(),
                 "Date d'inscription": eleve.date_inscription,
                 "Année inscription": eleve.date_inscription.year,
                 "Mois inscription": eleve.date_inscription.strftime('%B'),
@@ -254,7 +280,13 @@ class EleveAdmin(admin.ModelAdmin):
             stats_statut = df.groupby('Statut').size().to_frame(name='Effectif')
             stats_statut.to_excel(writer, sheet_name='Stats par statut')
             
-            # Feuille 5: Distribution des âges
+            # Feuille 5: Statistiques par Mutualité MASP
+            stats_masp = df.groupby('Mutualité MASP').size().to_frame(name='Effectif')
+            if len(df) > 0:
+                stats_masp['Pourcentage'] = (stats_masp['Effectif'] / len(df) * 100).round(2)
+            stats_masp.to_excel(writer, sheet_name='Stats Mutualité MASP')
+            
+            # Feuille 6: Distribution des âges
             if 'Âge' in df.columns and not df['Âge'].isnull().all():
                 age_stats = pd.DataFrame({
                     'Âge moyen': [df['Âge'].mean()],
@@ -268,12 +300,12 @@ class EleveAdmin(admin.ModelAdmin):
                 age_dist = df['Âge'].value_counts().sort_index().to_frame(name='Effectif')
                 age_dist.to_excel(writer, sheet_name='Distribution âges')
             
-            # Feuille 6: Inscriptions par mois
+            # Feuille 7: Inscriptions par mois
             if 'Mois inscription' in df.columns:
                 inscriptions_mois = df['Mois inscription'].value_counts().to_frame(name='Inscriptions')
                 inscriptions_mois.to_excel(writer, sheet_name='Inscriptions par mois')
             
-            # Feuille 7: Résumé exécutif
+            # Feuille 8: Résumé exécutif
             resume = pd.DataFrame({
                 'Indicateur': [
                     'Total élèves',
@@ -281,6 +313,8 @@ class EleveAdmin(admin.ModelAdmin):
                     'Élèves inactifs',
                     'Garçons',
                     'Filles',
+                    'Membres Mutualité MASP',
+                    'Non membres Mutualité MASP',
                     'Nombre de classes',
                     'Taux d\'occupation',
                     'Date du rapport'
@@ -291,6 +325,8 @@ class EleveAdmin(admin.ModelAdmin):
                     len(df[df['Statut'] != 'Actif']),
                     len(df[df['Sexe'] == 'Masculin']),
                     len(df[df['Sexe'] == 'Féminin']),
+                    len(df[df['Mutualité MASP'] == 'Oui']),
+                    len(df[df['Mutualité MASP'] == 'Non']),
                     df['Classe'].nunique(),
                     f"{(len(df) / (df['Classe'].nunique() * 50) * 100):.1f}%" if df['Classe'].nunique() > 0 else "N/A",
                     timezone.now().strftime('%d/%m/%Y %H:%M')
@@ -350,7 +386,7 @@ class EleveAdmin(admin.ModelAdmin):
         if classe_id:
             queryset = queryset.filter(classe_id=classe_id)
         if statut:
-            queryset = queryset.filter(statut=statut)
+            queryset = queryset.filter(statut_id=statut)
         
         output = BytesIO()
         workbook = xlsxwriter.Workbook(output, {'options': {'nan_inf_to_errors': True}})
@@ -384,11 +420,11 @@ class EleveAdmin(admin.ModelAdmin):
             worksheet.write(row, 2, eleve.post_nom, cell_format)
             worksheet.write(row, 3, eleve.prenom, cell_format)
             worksheet.write(row, 4, eleve.classe.__str__() if eleve.classe else "", cell_format)
-            worksheet.write(row, 5, dict(Eleve.SEXE_CHOICES).get(eleve.sexe, eleve.sexe), cell_format)
+            worksheet.write(row, 5, eleve.get_sexe_display(), cell_format)
             worksheet.write(row, 6, self.calculer_age(eleve.date_naissance) if eleve.date_naissance else "", cell_format)
             worksheet.write(row, 7, eleve.telephone, cell_format)
             worksheet.write(row, 8, eleve.email, cell_format)
-            worksheet.write(row, 9, dict(Eleve.STATUT_CHOICES).get(eleve.statut, eleve.statut), cell_format)
+            worksheet.write(row, 9, eleve.get_statut_display(), cell_format)
             worksheet.write(row, 10, eleve.date_inscription.strftime('%d/%m/%Y'), cell_format)
         
         # Ajuster les largeurs
@@ -494,9 +530,9 @@ class EleveAdmin(admin.ModelAdmin):
         summary_data = [
             ['Indicateur', 'Valeur'],
             ['Total des élèves', str(queryset.count())],
-            ['Élèves actifs', str(queryset.filter(statut='actif').count())],
-            ['Garçons', str(queryset.filter(sexe='M').count())],
-            ['Filles', str(queryset.filter(sexe='F').count())],
+            ['Élèves actifs', str(queryset.filter(statut_id='actif').count())],
+            ['Garçons', str(queryset.filter(sexe_id='M').count())],
+            ['Filles', str(queryset.filter(sexe_id='F').count())],
             ['Nombre de classes', str(queryset.values('classe').distinct().count())],
         ]
         
@@ -543,7 +579,7 @@ class EleveAdmin(admin.ModelAdmin):
         if classe_id:
             queryset = queryset.filter(classe_id=classe_id)
         if statut:
-            queryset = queryset.filter(statut=statut)
+            queryset = queryset.filter(statut_id=statut)
         
         response = HttpResponse(content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="liste_eleves_{timezone.now().strftime("%Y%m%d")}.pdf"'
@@ -571,8 +607,8 @@ class EleveAdmin(admin.ModelAdmin):
                 eleve.matricule,
                 f"{eleve.nom} {eleve.post_nom} {eleve.prenom}",
                 eleve.classe.__str__() if eleve.classe else "-",
-                'M' if eleve.sexe == 'M' else 'F',
-                dict(Eleve.STATUT_CHOICES).get(eleve.statut, eleve.statut)
+                eleve.sexe_id,
+                eleve.get_statut_display()
             ])
         
         table = Table(data)
@@ -604,9 +640,9 @@ class EleveAdmin(admin.ModelAdmin):
                 'matricule': eleve.matricule,
                 'nom': eleve.nom,
                 'classe': eleve.classe.__str__() if eleve.classe else 'Non assigné',
-                'niveau': eleve.classe.niveau if eleve.classe else 'Non assigné',
-                'sexe': eleve.sexe,
-                'statut': eleve.statut,
+                'niveau': str(eleve.classe.niveau) if eleve.classe else 'Non assigné',
+                'sexe': eleve.sexe_id,
+                'statut': eleve.statut_id,
                 'age': self.calculer_age(eleve.date_naissance) if eleve.date_naissance else 0,
                 'date_inscription': eleve.date_inscription,
             })
@@ -656,7 +692,7 @@ class EleveAdmin(admin.ModelAdmin):
                 if classe_name not in classes_data:
                     classes_data[classe_name] = {'total': 0, 'M': 0, 'F': 0}
                 classes_data[classe_name]['total'] += 1
-                if eleve.sexe == 'M':
+                if eleve.sexe_id == 'M':
                     classes_data[classe_name]['M'] += 1
                 else:
                     classes_data[classe_name]['F'] += 1
@@ -709,9 +745,9 @@ class EleveAdmin(admin.ModelAdmin):
             ['Matricule:', eleve.matricule],
             ['Nom:', f"{eleve.nom} {eleve.post_nom} {eleve.prenom}"],
             ['Classe:', eleve.classe.__str__() if eleve.classe else "Non assignée"],
-            ['Sexe:', dict(Eleve.SEXE_CHOICES).get(eleve.sexe, eleve.sexe)],
+            ['Sexe:', eleve.get_sexe_display()],
             ['Date de naissance:', eleve.date_naissance.strftime('%d/%m/%Y') if eleve.date_naissance else "Non renseignée"],
-            ['Statut:', dict(Eleve.STATUT_CHOICES).get(eleve.statut, eleve.statut)],
+            ['Statut:', eleve.get_statut_display()],
         ]
         
         info_table = Table(info_data, colWidths=[2*inch, 4*inch])
@@ -772,7 +808,7 @@ class EleveAdmin(admin.ModelAdmin):
         <b>Matricule:</b> {eleve.matricule}<br/>
         <b>Date de naissance:</b> {eleve.date_naissance.strftime('%d/%m/%Y') if eleve.date_naissance else "Non renseignée"}<br/>
         <b>Classe:</b> {eleve.classe.__str__() if eleve.classe else "Non assignée"}<br/>
-        <b>Statut:</b> {dict(Eleve.STATUT_CHOICES).get(eleve.statut, eleve.statut)}<br/>
+        <b>Statut:</b> {eleve.get_statut_display()}<br/>
         </para>
         
         <para fontSize="11" spaceAfter="20">
@@ -843,7 +879,7 @@ class EleveAdmin(admin.ModelAdmin):
         if classe_id:
             queryset = queryset.filter(classe_id=classe_id)
         if statut:
-            queryset = queryset.filter(statut=statut)
+            queryset = queryset.filter(statut_id=statut)
         
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="eleves_{timezone.now().strftime("%Y%m%d")}.csv"'
@@ -855,8 +891,8 @@ class EleveAdmin(admin.ModelAdmin):
             writer.writerow([
                 eleve.matricule, eleve.nom, eleve.post_nom, eleve.prenom,
                 eleve.classe.__str__() if eleve.classe else "",
-                'M' if eleve.sexe == 'M' else 'F',
-                dict(Eleve.STATUT_CHOICES).get(eleve.statut, eleve.statut),
+                eleve.sexe_id,
+                eleve.get_statut_display(),
                 eleve.date_inscription.strftime('%d/%m/%Y')
             ])
         
@@ -877,7 +913,7 @@ class EleveAdmin(admin.ModelAdmin):
         context = {
             'title': 'Impression en masse',
             'opts': self.model._meta,
-            'eleves': Eleve.objects.filter(statut='actif'),
+            'eleves': Eleve.objects.filter(statut_id='actif'),
         }
         return render(request, 'admin/impression_masse.html', context)
     
@@ -918,7 +954,7 @@ class EleveAdmin(admin.ModelAdmin):
             writer.writerow([
                 eleve.matricule, eleve.nom, eleve.post_nom, eleve.prenom,
                 eleve.classe.__str__() if eleve.classe else "",
-                eleve.sexe, eleve.statut
+                eleve.sexe_id, eleve.statut_id
             ])
         
         response = HttpResponse(output.getvalue(), content_type='text/csv')
@@ -927,33 +963,152 @@ class EleveAdmin(admin.ModelAdmin):
     exporter_csv_selection.short_description = "Exporter la sélection en CSV"
     
     def exporter_excel_selection(self, request, queryset):
-        # Convertir en DataFrame
-        data = [{
-            'Matricule': e.matricule,
-            'Nom': e.nom,
-            'Post-nom': e.post_nom,
-            'Prénom': e.prenom,
-            'Classe': e.classe.__str__() if e.classe else "",
-            'Sexe': e.sexe,
-            'Statut': e.statut,
-        } for e in queryset]
-        
-        df = pd.DataFrame(data)
-        output = BytesIO()
-        
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, sheet_name='Élèves sélectionnés', index=False)
-        
-        output.seek(0)
-        response = HttpResponse(output, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = 'attachment; filename="eleves_selection.xlsx"'
-        return response
-    exporter_excel_selection.short_description = "Exporter la sélection en Excel (pandas)"
-    
-    def generer_bulletins_masse(self, request, queryset):
-        messages.info(request, f"Génération des bulletins pour {queryset.count()} élèves...")
-        return redirect('admin:rapports_dashboard')
-    generer_bulletins_masse.short_description = "Générer les bulletins pour la sélection"
+            """Export Excel avec TOUTES les informations de l'élève (sans traçabilité)"""
+            from datetime import date
+            
+            # Convertir en DataFrame avec TOUS les champs (sauf photo, created_by, created_at, updated_at)
+            data = []
+            for eleve in queryset:
+                # Convertir les dates en string pour éviter les problèmes de timezone
+                date_naissance_str = ""
+                if eleve.date_naissance:
+                    if hasattr(eleve.date_naissance, 'strftime'):
+                        date_naissance_str = eleve.date_naissance.strftime('%d/%m/%Y')
+                    else:
+                        date_naissance_str = str(eleve.date_naissance)
+                
+                date_inscription_str = ""
+                if eleve.date_inscription:
+                    if hasattr(eleve.date_inscription, 'strftime'):
+                        date_inscription_str = eleve.date_inscription.strftime('%d/%m/%Y')
+                    else:
+                        date_inscription_str = str(eleve.date_inscription)
+                
+                # Calculer l'âge
+                age_value = ""
+                if eleve.date_naissance:
+                    age_value = self.calculer_age(eleve.date_naissance)
+                    if age_value is None:
+                        age_value = ""
+                
+                data.append({
+                    'Matricule': eleve.matricule,
+                    'Nom': eleve.nom,
+                    'Post-nom': eleve.post_nom,
+                    'Prénom': eleve.prenom,
+                    'Nom complet': f"{eleve.nom} {eleve.post_nom} {eleve.prenom}",
+                    'Lieu de naissance': eleve.lieu_de_naissance if eleve.lieu_de_naissance else '',
+                    'Date de naissance': date_naissance_str,
+                    'Âge': age_value,
+                    'Sexe': eleve.get_sexe_display(),
+                    'Adresse': eleve.adresse if eleve.adresse else '',
+                    'Téléphone': eleve.telephone if eleve.telephone else '',
+                    'Email': eleve.email if eleve.email else '',
+                    'Mutualité MASP': 'Oui' if eleve.est_masp else 'Non',
+                    'Classe': eleve.classe.__str__() if eleve.classe else 'Non assigné',
+                    'Niveau': str(eleve.classe.niveau) if eleve.classe else 'Non assigné',
+                    'Statut': eleve.get_statut_display(),
+                    "Date d'inscription": date_inscription_str,
+                })
+            
+            df = pd.DataFrame(data)
+            output = BytesIO()
+            
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df.to_excel(writer, sheet_name='Élèves sélectionnés', index=False)
+                
+                # Ajouter une feuille de statistiques récapitulatives
+                # Compter les âges valides pour les statistiques
+                ages_valides = []
+                for item in data:
+                    if item['Âge'] != "" and isinstance(item['Âge'], (int, float)):
+                        ages_valides.append(item['Âge'])
+                
+                stats_data = {
+                    'Indicateur': [
+                        'Total élèves sélectionnés',
+                        'Garçons',
+                        'Filles',
+                        'Membres MASP',
+                        'Non membres MASP',
+                        'Élèves actifs',
+                        'Élèves inactifs',
+                        'Nombre de classes',
+                        'Âge moyen',
+                        'Âge minimum',
+                        'Âge maximum',
+                        "Date d'export"
+                    ],
+                    'Valeur': [
+                        len(df),
+                        len(df[df['Sexe'] == 'Masculin']),
+                        len(df[df['Sexe'] == 'Féminin']),
+                        len(df[df['Mutualité MASP'] == 'Oui']),
+                        len(df[df['Mutualité MASP'] == 'Non']),
+                        len(df[df['Statut'] == 'Actif']),
+                        len(df[df['Statut'] != 'Actif']),
+                        df['Classe'].nunique(),
+                        f"{sum(ages_valides)/len(ages_valides):.1f}" if ages_valides else "N/A",
+                        f"{min(ages_valides)}" if ages_valides else "N/A",
+                        f"{max(ages_valides)}" if ages_valides else "N/A",
+                        timezone.now().strftime('%d/%m/%Y %H:%M:%S')
+                    ]
+                }
+                stats_df = pd.DataFrame(stats_data)
+                stats_df.to_excel(writer, sheet_name='Récapitulatif', index=False)
+            
+            # Appliquer le formatage professionnel
+            workbook = openpyxl.load_workbook(output)
+            
+            # Formater la feuille principale
+            for sheetname in workbook.sheetnames:
+                worksheet = workbook[sheetname]
+                
+                # En-têtes en gras avec couleur (format aRGB: FF + couleur)
+                for cell in worksheet[1]:
+                    cell.font = Font(bold=True, color="FFFFFF", size=11)
+                    cell.fill = PatternFill(start_color="FF1a472a", end_color="FF1a472a", fill_type="solid")
+                    cell.alignment = Alignment(horizontal='center', vertical='center')
+                
+                # Alternance des couleurs pour les lignes (format aRGB)
+                for row_idx, row in enumerate(worksheet.iter_rows(min_row=2), start=2):
+                    if row_idx % 2 == 0:
+                        for cell in row:
+                            cell.fill = PatternFill(start_color="FFF5F5F5", end_color="FFF5F5F5", fill_type="solid")
+                
+                # Ajuster les largeurs de colonnes automatiquement
+                for column in worksheet.columns:
+                    max_length = 0
+                    column_letter = get_column_letter(column[0].column)
+                    for cell in column:
+                        try:
+                            cell_len = len(str(cell.value)) if cell.value else 0
+                            if cell_len > max_length:
+                                max_length = cell_len
+                        except:
+                            pass
+                    adjusted_length = min(max_length + 2, 35)
+                    worksheet.column_dimensions[column_letter].width = adjusted_length
+                
+                # Centrer certaines colonnes
+                for row in worksheet.iter_rows(min_row=2, max_col=worksheet.max_column, max_row=worksheet.max_row):
+                    for cell in row:
+                        # Colonnes à centrer (ajustez selon vos besoins)
+                        if cell.column in [1, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]:
+                            cell.alignment = Alignment(horizontal='center', vertical='center')
+                        else:
+                            cell.alignment = Alignment(horizontal='left', vertical='center')
+            
+            workbook.save(output)
+            output.seek(0)
+            
+            response = HttpResponse(output, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response['Content-Disposition'] = 'attachment; filename="eleves_selection_complet.xlsx"'
+            
+            messages.success(request, f"Export Excel réussi! {len(data)} élèves exportés avec toutes leurs informations.")
+            
+            return response
+    exporter_excel_selection.short_description = "Exporter la sélection en Excel (Complet)" 
 
 # Enregistrement des modèles
 admin.site.register(Classe, ClasseAdmin)

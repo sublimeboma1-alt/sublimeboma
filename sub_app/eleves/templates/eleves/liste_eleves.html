@@ -4,6 +4,28 @@
 
 {% block content %}
 <div class="container mt-4">
+
+<!-- AJOUT: Alerte année scolaire active -->
+{% if annee_active %}
+<div class="alert alert-info alert-dismissible fade show mb-3" role="alert">
+    <i class="fas fa-calendar-alt"></i>
+    <strong>Année scolaire active :</strong> {{ annee_active.annee }} 
+    ({{ annee_active.date_debut|date:"d/m/Y" }} - {{ annee_active.date_fin|date:"d/m/Y" }})
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    <br>
+    <small class="text-muted">
+        <i class="fas fa-info-circle"></i> Affichage des élèves inscrits pendant cette période
+    </small>
+</div>
+{% else %}
+<div class="alert alert-danger mb-3">
+    <i class="fas fa-exclamation-triangle"></i>
+    <strong>⚠️ Aucune année scolaire active !</strong> 
+    Veuillez configurer une année scolaire active dans l'administration pour voir les élèves.
+</div>
+{% endif %}
+<!-- FIN AJOUT -->
+
     <div class="card shadow-sm">
         <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
             <h3 class="mb-0"><i class="fas fa-users"></i> Liste des élèves</h3>
@@ -36,16 +58,18 @@
                             {% endfor %}
                         </select>
                     </div>
+                    <!-- AJOUT: Filtre par année scolaire (remplace l'ancien filtre année) -->
                     <div class="col-md-2">
-                        <select name="annee" class="form-control">
-                            <option value="">Toutes les années</option>
-                            {% for annee in annees_disponibles %}
-                                <option value="{{ annee.year }}" {% if annee_selected|add:0 == annee.year %}selected{% endif %}>
-                                    {{ annee.year }}
+                        <select name="annee_scolaire" class="form-control">
+                            <option value="">Année scolaire active</option>
+                            {% for annee in toutes_annees_scolaires %}
+                                <option value="{{ annee.id }}" {% if annee_scolaire_selected|stringformat:"s" == annee.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ annee.annee }}
                                 </option>
                             {% endfor %}
                         </select>
                     </div>
+                    <!-- FIN AJOUT -->
                     <div class="col-md-2">
                         <select name="statut" class="form-control">
                             <option value="">Tous les statuts</option>
@@ -78,6 +102,13 @@
             <!-- Résumé des résultats -->
             <div class="alert alert-info mb-3">
                 <i class="fas fa-chart-bar"></i> Total : <strong>{{ total_eleves }}</strong> élève(s) trouvé(s)
+                <!-- AJOUT: Indication de l'année filtrée -->
+                {% if annee_scolaire_selected %}
+                    <span class="badge bg-primary ms-2">
+                        <i class="fas fa-filter"></i> Année filtrée
+                    </span>
+                {% endif %}
+                <!-- FIN AJOUT -->
             </div>
             
             <div class="table-responsive">

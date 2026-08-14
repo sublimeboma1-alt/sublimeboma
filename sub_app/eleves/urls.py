@@ -1,13 +1,14 @@
 from django.urls import path
+
 from . import views
 
-app_name = 'eleves'  # Important : doit correspondre à ce que vous utilisez dans les templates
+
+app_name = 'eleves'
 
 urlpatterns = [
-    path('creer/', views.creer_eleve, name='creer_eleve'),
-    path('liste/', views.liste_eleves, name='liste_eleves'),
-    path('detail/<int:pk>/', views.detail_eleve, name='detail_eleve'),
-    path('modifier/<int:pk>/', views.modifier_eleve, name='modifier_eleve'),
-    path('supprimer/<int:pk>/', views.supprimer_eleve, name='supprimer_eleve'),
-    path('api/get-or-create-classe/', views.get_or_create_classe, name='get_or_create_classe'),
+    path('api/classes/', views.classes_list, name='classes_list'),
+    path('api/references/', views.references_view, name='references'),
+    path('api/eleves/export/xlsx/', views.export_eleves_xlsx, name='eleves_export_xlsx'),
+    path('api/eleves/', views.eleves_list_create, name='eleves_list_create'),
+    path('api/eleves/<int:eleve_id>/', views.eleve_detail, name='eleve_detail'),
 ]

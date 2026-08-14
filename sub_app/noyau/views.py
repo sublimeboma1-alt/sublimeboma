@@ -1,17 +1,33 @@
-from django.http import HttpResponseForbidden
-from django.shortcuts import redirect, render
+from django.http import JsonResponse
 
-# Create your views here.
-
-def tableau_de_bord(request):
-    #return render(request, 'noyau/base.html')
-    return redirect('/eleves/liste')
+from .models import IdentiteEtablissement
 
 
-def go_to_admin(request):
-    if request.user.is_authenticated and request.user.is_superuser:
-        return redirect('/admin/')
-    return HttpResponseForbidden("Accès refusé")
+def serialize_identite(identite):
+    if not identite:
+        return {
+            'nom': 'Complexe Scolaire Sublime',
+            'espace': 'Administration',
+            'sigle': 'CS',
+            'adresse': '',
+            'telephone': '',
+            'email': '',
+        }
+
+    return {
+        'id': identite.id,
+        'nom': identite.nom,
+        'espace': identite.espace,
+        'sigle': identite.sigle,
+        'adresse': identite.adresse,
+        'telephone': identite.telephone,
+        'email': identite.email,
+    }
 
 
-# views.py
+def home(request):
+    return JsonResponse({'application': 'sublime', 'status': 'ok'})
+
+
+def identite_etablissement(request):
+    return JsonResponse(serialize_identite(IdentiteEtablissement.active()))

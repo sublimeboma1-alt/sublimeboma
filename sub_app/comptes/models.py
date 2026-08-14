@@ -1,3 +1,1 @@
-from django.db import models
-
-# Create your models here.
+# Cette application utilise le modele User par defaut de Django.

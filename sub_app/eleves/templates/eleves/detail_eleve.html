@@ -4,6 +4,41 @@
 
 {% block content %}
 <div class="container mt-4">
+
+<!-- AJOUT: Alerte année scolaire active -->
+{% if annee_active %}
+<div class="alert alert-info alert-dismissible fade show mb-3" role="alert">
+    <i class="fas fa-calendar-alt"></i>
+    <strong>Année scolaire active :</strong> {{ annee_active.annee }} 
+    ({{ annee_active.date_debut|date:"d/m/Y" }} - {{ annee_active.date_fin|date:"d/m/Y" }})
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% else %}
+<div class="alert alert-danger mb-3">
+    <i class="fas fa-exclamation-triangle"></i>
+    <strong>⚠️ Aucune année scolaire active !</strong> 
+    Veuillez configurer une année scolaire active dans l'administration.
+</div>
+{% endif %}
+
+<!-- AJOUT: Avertissement si l'élève n'est pas dans l'année active -->
+{% if annee_active and eleve.date_inscription %}
+    {% if eleve.date_inscription < annee_active.date_debut or eleve.date_inscription > annee_active.date_fin %}
+    <div class="alert alert-warning mb-3">
+        <i class="fas fa-history"></i>
+        <strong>Attention :</strong> Cet élève a été inscrit le {{ eleve.date_inscription|date:"d/m/Y" }},
+        {% if annee_eleve %}
+            pendant l'année scolaire <strong>{{ annee_eleve.annee }}</strong>
+        {% else %}
+            en dehors de la période de l'année active
+        {% endif %}.
+        <br>
+        <small>L'année active est {{ annee_active.annee }} ({{ annee_active.date_debut|date:"d/m/Y" }} - {{ annee_active.date_fin|date:"d/m/Y" }})</small>
+    </div>
+    {% endif %}
+{% endif %}
+<!-- FIN AJOUT -->
+
     <div class="row">
         <div class="col-md-4">
             <div class="card shadow-sm">
@@ -35,6 +70,27 @@
                             </span>
                         {% endif %}
                     </div>
+                    
+                    <!-- AJOUT: Badge année scolaire de l'élève -->
+                    <hr>
+                    <div class="mt-2">
+                        {% if annee_eleve %}
+                            <span class="badge {% if annee_active and annee_eleve.id == annee_active.id %}bg-primary{% else %}bg-secondary{% endif %} fs-6 p-2">
+                                <i class="fas fa-calendar-alt"></i> 
+                                Année: {{ annee_eleve.annee }}
+                                {% if annee_active and annee_eleve.id == annee_active.id %}
+                                    <i class="fas fa-star"></i>
+                                {% endif %}
+                            </span>
+                        {% elif eleve.date_inscription %}
+                            <span class="badge bg-secondary fs-6 p-2">
+                                <i class="fas fa-calendar-alt"></i> 
+                                Inscrit: {{ eleve.date_inscription|date:"Y" }}
+                            </span>
+                        {% endif %}
+                    </div>
+                    <!-- FIN AJOUT -->
+                    
                 </div>
                 <div class="card-footer bg-transparent">
                     <div class="d-grid gap-2">
@@ -73,11 +129,17 @@
                                 <tr>
                                     <th><i class="fas fa-user"></i> Prénom:</th>
                                     <td>{{ eleve.prenom }}</td>
-                                </tr>
+                                 </tr>
                                 <tr>
                                     <th><i class="fas fa-calendar-alt"></i> Date naissance:</th>
                                     <td>{{ eleve.date_naissance|date:"d/m/Y"|default:"Non renseignée" }}</td>
-                                </tr>
+                                 </tr>
+                                <!-- AJOUT : Lieu de naissance -->
+                                <tr>
+                                    <th><i class="fas fa-map-marker-alt"></i> Lieu naissance:</th>
+                                    <td>{{ eleve.lieu_de_naissance|default:"non renseigné" }}</td>
+                                 </tr>
+                                <!-- FIN AJOUT -->
                                 <tr>
                                     <th><i class="fas fa-venus-mars"></i> Sexe:</th>
                                     <td>
@@ -86,9 +148,9 @@
                                         {% else %}
                                             <span class="badge bg-danger"><i class="fas fa-venus"></i> Féminin</span>
                                         {% endif %}
-                                    </td>
-                                </tr>
-                            </table>
+                                     </td>
+                                 </tr>
+                             </table>
                         </div>
                         <div class="col-md-6">
                             <table class="table table-borderless">
@@ -130,8 +192,8 @@
                                                 Non assignée
                                             {% endif %}
                                         </span>
-                                    </td>
-                                </tr>
+                                     </td>
+                                 </tr>
                                 {% if eleve.classe and eleve.classe.niveau == 'humanite' and eleve.classe.section %}
                                 <tr>
                                     <th><i class="fas fa-layer-group"></i> Section:</th>
@@ -139,13 +201,13 @@
                                         <span class="badge bg-info fs-6">
                                             {{ eleve.classe.get_section_display }}
                                         </span>
-                                    </td>
-                                </tr>
+                                     </td>
+                                 </tr>
                                 {% endif %}
                                 <tr>
                                     <th><i class="fas fa-calendar-check"></i> Date inscription:</th>
                                     <td>{{ eleve.date_inscription|date:"d/m/Y" }}</td>
-                                </tr>
+                                 </tr>
                                 <tr>
                                     <th><i class="fas fa-chart-line"></i> Statut:</th>
                                     <td>
@@ -158,17 +220,17 @@
                                         {% else %}
                                             <span class="badge bg-secondary"><i class="fas fa-graduation-cap"></i> Diplômé</span>
                                         {% endif %}
-                                    </td>
-                                </tr>
+                                     </td>
+                                 </tr>
                                 <tr>
                                     <th><i class="fas fa-user-check"></i> Créé par:</th>
                                     <td>{{ eleve.created_by.username|default:"N/A" }}</td>
-                                </tr>
+                                 </tr>
                                 <tr>
                                     <th><i class="fas fa-clock"></i> Créé le:</th>
                                     <td>{{ eleve.created_at|date:"d/m/Y H:i" }}</td>
-                                </tr>
-                            </table>
+                                 </tr>
+                             </table>
                         </div>
                     </div>
                     

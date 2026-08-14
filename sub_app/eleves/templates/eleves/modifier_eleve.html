@@ -5,9 +5,40 @@
 {% block content %}
 <div class="container mt-4">
 
+<!-- AJOUT: Alerte année scolaire active -->
+{% if annee_active %}
+<div class="alert alert-info alert-dismissible fade show mb-3" role="alert">
+    <i class="fas fa-calendar-alt"></i>
+    <strong>Année scolaire active :</strong> {{ annee_active.annee }} 
+    ({{ annee_active.date_debut|date:"d/m/Y" }} - {{ annee_active.date_fin|date:"d/m/Y" }})
+    {% if eleve.date_inscription and eleve.date_inscription < annee_active.date_debut %}
+    <br>
+    <i class="fas fa-history"></i>
+    <span class="badge bg-warning text-dark mt-1">
+        ⚠️ Attention : Cet élève a été inscrit le {{ eleve.date_inscription|date:"d/m/Y" }} 
+        (avant l'année active)
+    </span>
+    {% endif %}
+</div>
+{% else %}
+<div class="alert alert-danger mb-3">
+    <i class="fas fa-exclamation-triangle"></i>
+    <strong>⚠️si elle n'existe pas !</strong> 
+    Veuillez configurer une année scolaire active dans l'administration.
+</div>
+{% endif %}
+<!-- FIN AJOUT -->
+
 <div class="card shadow">
     <div class="card-header bg-primary text-white">
         <h4>Modifier : {{ eleve.nom }} {{ eleve.prenom }}</h4>
+        <!-- AJOUT: Afficher l'année d'inscription de l'élève -->
+        {% if eleve.date_inscription %}
+        <small class="text-white-50">
+            Inscrit le : {{ eleve.date_inscription|date:"d/m/Y" }}
+        </small>
+        {% endif %}
+        <!-- FIN AJOUT -->
     </div>
 
     <div class="card-body">
@@ -31,6 +62,12 @@
             <div class="mb-3">
                 <label>Prénom</label>
                 <input type="text" name="prenom" class="form-control" value="{{ eleve.prenom }}">
+            </div>
+
+            <!-- LIEU DE NAISSANCE (AJOUT) -->
+            <div class="mb-3">
+                <label>Lieu de naissance</label>
+                <input type="text" name="lieu_de_naissance" class="form-control" value="{{ eleve.lieu_de_naissance|default:'non renseigné' }}">
             </div>
 
             <!-- DATE NAISSANCE -->

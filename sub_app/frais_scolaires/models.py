@@ -1,10 +1,65 @@
 from django.db import models
-
-# Create your models here.
-from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
-from sub_app.eleves.models import Eleve, Classe
+from sub_app.eleves.models import Eleve, Classe, NiveauClasse, ClasseMaternelle
+
+
+class TypeFrais(models.Model):
+    code = models.CharField(max_length=50, unique=True)
+    libelle = models.CharField(max_length=100)
+    description = models.TextField(blank=True, null=True)
+    est_actif = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.libelle
+
+    class Meta:
+        verbose_name = "Type de frais"
+        verbose_name_plural = "Types de frais"
+        ordering = ['libelle']
+
+
+class ModePaiement(models.Model):
+    code = models.CharField(max_length=50, unique=True)
+    libelle = models.CharField(max_length=100)
+    est_actif = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.libelle
+
+    class Meta:
+        verbose_name = "Mode de paiement"
+        verbose_name_plural = "Modes de paiement"
+        ordering = ['libelle']
+
+
+class StatutPaiement(models.Model):
+    code = models.CharField(max_length=20, unique=True)
+    libelle = models.CharField(max_length=100)
+    est_actif = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.libelle
+
+    class Meta:
+        verbose_name = "Statut de paiement"
+        verbose_name_plural = "Statuts de paiement"
+        ordering = ['libelle']
+
+
+class Trimestre(models.Model):
+    numero = models.PositiveSmallIntegerField(unique=True)
+    libelle = models.CharField(max_length=100)
+    est_actif = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.libelle
+
+    class Meta:
+        verbose_name = "Trimestre"
+        verbose_name_plural = "Trimestres"
+        ordering = ['numero']
+
 
 class AnneeScolaire(models.Model):
     annee = models.CharField(max_length=20, unique=True, verbose_name="Année scolaire")
@@ -23,18 +78,6 @@ class AnneeScolaire(models.Model):
 
 class TarifFrais(models.Model):
     """Modèle pour définir les tarifs par niveau, classe et option"""
-    TYPES_FRAIS = [
-        ('inscription', 'Frais d\'inscription'),
-        ('minerval', 'Minerval'),
-        ('uniforme', 'Uniforme'),
-        ('examen', 'Frais d\'examen'),
-        ('bibliotheque', 'Bibliothèque'),
-        ('activite', 'Activité parascolaire'),
-        ('cantine', 'Cantine'),
-        ('transport', 'Transport'),
-        ('autre', 'Autre'),
-    ]
-    
     NIVEAU_CHOICES = [
         ('maternel', 'Maternel'),
         ('primaire', 'Primaire'),
@@ -54,7 +97,7 @@ class TarifFrais(models.Model):
     ]
     
     # Pour maternel
-    classe_maternel = models.CharField(max_length=20, choices=CLASSE_MATERNEL_CHOICES, blank=True, null=True, verbose_name="Classe maternelle")
+    classe_maternel = models.ForeignKey(ClasseMaternelle, to_field='code', on_delete=models.PROTECT, blank=True, null=True, verbose_name="Classe maternelle")
     
     # Pour primaire
     classe_primaire = models.CharField(max_length=20, blank=True, null=True, verbose_name="Classe primaire")
@@ -63,9 +106,9 @@ class TarifFrais(models.Model):
     classe_humanite = models.CharField(max_length=30, blank=True, null=True, verbose_name="Classe humanité")
     option_humanite = models.CharField(max_length=50, blank=True, null=True, verbose_name="Option (section)")
     
-    niveau = models.CharField(max_length=20, choices=NIVEAU_CHOICES, verbose_name="Niveau")
-    trimestre = models.IntegerField(choices=TRIMESTRE_CHOICES, verbose_name="Trimestre")
-    type_frais = models.CharField(max_length=50, choices=TYPES_FRAIS, verbose_name="Type de frais")
+    niveau = models.ForeignKey(NiveauClasse, to_field='code', on_delete=models.PROTECT, verbose_name="Niveau")
+    trimestre = models.ForeignKey(Trimestre, to_field='numero', on_delete=models.PROTECT, verbose_name="Trimestre")
+    type_frais = models.ForeignKey(TypeFrais, to_field='code', on_delete=models.PROTECT, verbose_name="Type de frais")
     montant = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Montant")
     annee_scolaire = models.ForeignKey(AnneeScolaire, on_delete=models.CASCADE, related_name='tarifs', verbose_name="Année scolaire")
     
@@ -75,32 +118,25 @@ class TarifFrais(models.Model):
         unique_together = ['niveau', 'classe_maternel', 'classe_primaire', 'classe_humanite', 'option_humanite', 'trimestre', 'type_frais', 'annee_scolaire']
     
     def __str__(self):
-        if self.niveau == 'maternel' and self.classe_maternel:
-            dict_maternel = dict(self.CLASSE_MATERNEL_CHOICES)
-            classe_nom = dict_maternel.get(self.classe_maternel, self.classe_maternel)
-            return f"{classe_nom} - {self.get_trimestre_display()} - {self.get_type_frais_display()}: {self.montant} FC"
-        elif self.niveau == 'primaire' and self.classe_primaire:
-            return f"{self.get_niveau_display()} - {self.classe_primaire} - {self.get_trimestre_display()} - {self.get_type_frais_display()}: {self.montant} FC"
-        elif self.niveau == 'humanite' and self.classe_humanite:
-            return f"{self.get_niveau_display()} - {self.classe_humanite} ({self.option_humanite}) - {self.get_trimestre_display()} - {self.get_type_frais_display()}: {self.montant} FC"
-        return f"{self.get_niveau_display()} - {self.get_trimestre_display()} - {self.get_type_frais_display()}: {self.montant} FC"
+        if self.niveau_id == 'maternel' and self.classe_maternel:
+            classe_nom = str(self.classe_maternel)
+            return f"{classe_nom} - {self.get_trimestre_display()} - {self.type_frais}: {self.montant} FC"
+        elif self.niveau_id == 'primaire' and self.classe_primaire:
+            return f"{self.get_niveau_display()} - {self.classe_primaire} - {self.get_trimestre_display()} - {self.type_frais}: {self.montant} FC"
+        elif self.niveau_id == 'humanite' and self.classe_humanite:
+            return f"{self.get_niveau_display()} - {self.classe_humanite} ({self.option_humanite}) - {self.get_trimestre_display()} - {self.type_frais}: {self.montant} FC"
+        return f"{self.get_niveau_display()} - {self.get_trimestre_display()} - {self.type_frais}: {self.montant} FC"
+
+    def get_niveau_display(self):
+        return str(self.niveau) if self.niveau else ""
+
+    def get_trimestre_display(self):
+        return str(self.trimestre) if self.trimestre else ""
 
 
 
 class FraisScolaire(models.Model):
     """Frais assignés à un élève spécifique"""
-    TYPES_FRAIS = [
-        ('inscription', 'Frais d\'inscription'),
-        ('minerval', 'Minerval'),
-        ('uniforme', 'Uniforme'),
-        ('examen', 'Frais d\'examen'),
-        ('bibliotheque', 'Bibliothèque'),
-        ('activite', 'Activité parascolaire'),
-        ('cantine', 'Cantine'),
-        ('transport', 'Transport'),
-        ('autre', 'Autre'),
-    ]
-    
     TRIMESTRE_CHOICES = [
         (1, '1er Trimestre'),
         (2, '2ème Trimestre'),
@@ -109,8 +145,8 @@ class FraisScolaire(models.Model):
     
     eleve = models.ForeignKey(Eleve, on_delete=models.CASCADE, related_name='frais_inscription', verbose_name="Élève")
     annee_scolaire = models.ForeignKey(AnneeScolaire, on_delete=models.CASCADE, related_name='frais', verbose_name="Année scolaire")
-    trimestre = models.IntegerField(choices=TRIMESTRE_CHOICES, verbose_name="Trimestre")
-    type_frais = models.CharField(max_length=50, choices=TYPES_FRAIS, verbose_name="Type de frais")
+    trimestre = models.ForeignKey(Trimestre, to_field='numero', on_delete=models.PROTECT, verbose_name="Trimestre")
+    type_frais = models.ForeignKey(TypeFrais, to_field='code', on_delete=models.PROTECT, verbose_name="Type de frais")
     montant_total = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Montant total à payer")
     description = models.TextField(blank=True, null=True, verbose_name="Description")
     date_creation = models.DateTimeField(auto_now_add=True)
@@ -119,7 +155,7 @@ class FraisScolaire(models.Model):
     @property
     def total_paye(self):
         """Calculer le total payé pour ce frais"""
-        return self.paiements.filter(statut='valide').aggregate(total=models.Sum('montant_paye'))['total'] or 0
+        return self.paiements.filter(statut_id='valide').aggregate(total=models.Sum('montant_paye'))['total'] or 0
     
     @property
     def solde_restant(self):
@@ -137,7 +173,10 @@ class FraisScolaire(models.Model):
             return 'partiel'
     
     def __str__(self):
-        return f"{self.eleve.nom} {self.eleve.prenom} - {self.get_trimestre_display()} - {self.get_type_frais_display()}"
+        return f"{self.eleve.nom} {self.eleve.prenom} - {self.get_trimestre_display()} - {self.type_frais}"
+
+    def get_trimestre_display(self):
+        return str(self.trimestre) if self.trimestre else ""
     
     class Meta:
         verbose_name = "Frais scolaire"
@@ -145,27 +184,13 @@ class FraisScolaire(models.Model):
         unique_together = ['eleve', 'annee_scolaire', 'trimestre', 'type_frais']
 
 class Paiement(models.Model):
-    MODE_PAIEMENT = [
-        ('cash', 'Espèces'),
-        ('mobile_money', 'Mobile Money'),
-        ('banque', 'Virement bancaire'),
-        ('cheque', 'Chèque'),
-        ('carte', 'Carte bancaire'),
-    ]
-    
-    STATUT_PAIEMENT = [
-        ('valide', 'Validé'),
-        ('annule', 'Annulé'),
-        ('en_attente', 'En attente'),
-    ]
-    
     frais = models.ForeignKey(FraisScolaire, on_delete=models.CASCADE, related_name='paiements', verbose_name="Frais concerné")
     eleve = models.ForeignKey(Eleve, on_delete=models.CASCADE, related_name='paiements', verbose_name="Élève")
     montant_paye = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Montant payé")
     date_paiement = models.DateField(default=timezone.now, verbose_name="Date de paiement")
-    mode_paiement = models.CharField(max_length=50, choices=MODE_PAIEMENT, verbose_name="Mode de paiement")
+    mode_paiement = models.ForeignKey(ModePaiement, to_field='code', on_delete=models.PROTECT, verbose_name="Mode de paiement")
     reference = models.CharField(max_length=100, unique=True, editable=False, verbose_name="Numéro de reçu")
-    statut = models.CharField(max_length=20, choices=STATUT_PAIEMENT, default='valide', verbose_name="Statut")
+    statut = models.ForeignKey(StatutPaiement, to_field='code', on_delete=models.PROTECT, default='valide', verbose_name="Statut")
     description = models.TextField(blank=True, null=True, verbose_name="Observations")
     agent = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='paiements_enregistres', verbose_name="Agent")
     date_creation = models.DateTimeField(auto_now_add=True)

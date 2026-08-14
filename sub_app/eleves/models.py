@@ -4,6 +4,62 @@ from django.core.validators import RegexValidator, EmailValidator
 from django.utils import timezone
 import datetime
 
+
+class ReferenceBase(models.Model):
+    code = models.CharField(max_length=50, unique=True)
+    libelle = models.CharField(max_length=100)
+    est_actif = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.libelle
+
+    class Meta:
+        abstract = True
+        ordering = ['libelle']
+
+
+class NiveauClasse(ReferenceBase):
+    class Meta(ReferenceBase.Meta):
+        verbose_name = "Niveau"
+        verbose_name_plural = "Niveaux"
+
+
+class ClasseMaternelle(ReferenceBase):
+    class Meta(ReferenceBase.Meta):
+        verbose_name = "Classe maternelle"
+        verbose_name_plural = "Classes maternelles"
+
+
+class ClassePrimaire(ReferenceBase):
+    class Meta(ReferenceBase.Meta):
+        verbose_name = "Classe primaire"
+        verbose_name_plural = "Classes primaires"
+
+
+class ClasseHumanite(ReferenceBase):
+    class Meta(ReferenceBase.Meta):
+        verbose_name = "Classe humanite"
+        verbose_name_plural = "Classes humanites"
+
+
+class SectionHumanite(ReferenceBase):
+    class Meta(ReferenceBase.Meta):
+        verbose_name = "Section humanite"
+        verbose_name_plural = "Sections humanites"
+
+
+class Sexe(ReferenceBase):
+    class Meta(ReferenceBase.Meta):
+        verbose_name = "Sexe"
+        verbose_name_plural = "Sexes"
+
+
+class StatutEleve(ReferenceBase):
+    class Meta(ReferenceBase.Meta):
+        verbose_name = "Statut eleve"
+        verbose_name_plural = "Statuts eleves"
+
+
 class Classe(models.Model):
     NIVEAU_CHOICES = [
         ('maternel', 'Maternel'),
@@ -45,29 +101,26 @@ class Classe(models.Model):
         ('coupe_couture', 'Coupe et Couture'),
         ('latin_philo', 'Latin Philo'),
         ('commerciale', 'Commerciale'),
-        ('generale', 'Générale'),  # Optionnel
+        ('construction', 'Construction'),
+        ('mecanique_auto', 'Mécanique Auto'),
     ]
     
-    niveau = models.CharField(max_length=20, choices=NIVEAU_CHOICES)
-    classe_maternel = models.CharField(max_length=20, choices=CLASSE_MATERNEL_CHOICES, blank=True, null=True)
-    classe_primaire = models.CharField(max_length=20, choices=CLASSE_PRIMAIRE_CHOICES, blank=True, null=True)
-    classe_humanite = models.CharField(max_length=30, choices=CLASSE_HUMANITE_CHOICES, blank=True, null=True)
-    section = models.CharField(max_length=50, choices=SECTION_HUMANITE_CHOICES, blank=True, null=True, verbose_name="Section (Humanité)")
+    niveau = models.ForeignKey(NiveauClasse, to_field='code', on_delete=models.PROTECT)
+    classe_maternel = models.ForeignKey(ClasseMaternelle, to_field='code', on_delete=models.PROTECT, blank=True, null=True)
+    classe_primaire = models.ForeignKey(ClassePrimaire, to_field='code', on_delete=models.PROTECT, blank=True, null=True)
+    classe_humanite = models.ForeignKey(ClasseHumanite, to_field='code', on_delete=models.PROTECT, blank=True, null=True)
+    section = models.ForeignKey(SectionHumanite, to_field='code', on_delete=models.PROTECT, blank=True, null=True, verbose_name="Section (Humanité)")
     
     def __str__(self):
-        if self.niveau == 'maternel' and self.classe_maternel:
-            dict_maternel = dict(self.CLASSE_MATERNEL_CHOICES)
-            return dict_maternel.get(self.classe_maternel, self.classe_maternel)
-        elif self.niveau == 'primaire' and self.classe_primaire:
-            dict_primaire = dict(self.CLASSE_PRIMAIRE_CHOICES)
-            return dict_primaire.get(self.classe_primaire, self.classe_primaire)
-        elif self.niveau == 'humanite' and self.classe_humanite:
-            dict_humanite = dict(self.CLASSE_HUMANITE_CHOICES)
-            classe_nom = dict_humanite.get(self.classe_humanite, self.classe_humanite)
+        niveau_code = getattr(self.niveau, 'code', self.niveau)
+        if niveau_code == 'maternel' and self.classe_maternel:
+            return str(self.classe_maternel)
+        elif niveau_code == 'primaire' and self.classe_primaire:
+            return str(self.classe_primaire)
+        elif niveau_code == 'humanite' and self.classe_humanite:
+            classe_nom = str(self.classe_humanite)
             if self.section:
-                dict_section = dict(self.SECTION_HUMANITE_CHOICES)
-                section_nom = dict_section.get(self.section, self.section)
-                return f"{classe_nom} - {section_nom}"
+                return f"{classe_nom} - {self.section}"
             return classe_nom
         return f"{self.niveau}"
     
@@ -92,8 +145,9 @@ class Eleve(models.Model):
     nom = models.CharField(max_length=100, verbose_name="Nom")
     post_nom = models.CharField(max_length=100, verbose_name="Post-nom")
     prenom = models.CharField(max_length=100, verbose_name="Prénom")
+    lieu_de_naissance = models.CharField(max_length=200, blank=True, null=True, verbose_name="Lieu de naissance")
     date_naissance = models.DateField(null=True, blank=True, verbose_name="Date de naissance")
-    sexe = models.CharField(max_length=1, choices=SEXE_CHOICES, verbose_name="Sexe")
+    sexe = models.ForeignKey(Sexe, to_field='code', on_delete=models.PROTECT, verbose_name="Sexe")
     adresse = models.TextField(blank=True, verbose_name="Adresse")
     telephone = models.CharField(
         max_length=20, 
@@ -113,9 +167,17 @@ class Eleve(models.Model):
     # Informations académiques
     matricule = models.CharField(max_length=20, unique=True, editable=False, verbose_name="Matricule")
     classe = models.ForeignKey(Classe, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Classe")
+    annee_scolaire = models.ForeignKey(
+        'frais_scolaires.AnneeScolaire',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='eleves',
+        verbose_name="Année scolaire",
+    )
     date_inscription = models.DateField(default=timezone.now, verbose_name="Date d'inscription")
     photo = models.ImageField(upload_to='eleves/photos/', blank=True, null=True, verbose_name="Photo")
-    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='actif', verbose_name="Statut")
+    statut = models.ForeignKey(StatutEleve, to_field='code', on_delete=models.PROTECT, default='actif', verbose_name="Statut")
     
     # Créateur
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='eleves_crees', verbose_name="Créé par")
@@ -141,7 +203,37 @@ class Eleve(models.Model):
     def save(self, *args, **kwargs):
         if not self.matricule:
             self.matricule = self.generate_matricule()
+        if not self.annee_scolaire_id:
+            from sub_app.frais_scolaires.models import AnneeScolaire
+            self.annee_scolaire = AnneeScolaire.objects.filter(est_active=True).first()
         super().save(*args, **kwargs)
+
+    # Dans sub_app/eleves/models.py, ajoutez cette méthode à la classe Eleve
+
+
+    # AJOUT: Méthode pour obtenir l'année scolaire de l'élève
+    def get_annee_scolaire(self):
+        """Retourne l'année scolaire officielle de l'élève."""
+        if self.annee_scolaire_id:
+            return self.annee_scolaire
+
+        from sub_app.frais_scolaires.models import AnneeScolaire
+        return AnneeScolaire.objects.filter(
+            date_debut__lte=self.date_inscription,
+            date_fin__gte=self.date_inscription
+        ).first()
+    
+    def est_dans_annee_active(self):
+        """Vérifie si l'élève est dans l'année scolaire active"""
+        from sub_app.frais_scolaires.models import AnneeScolaire
+        annee_active = AnneeScolaire.objects.filter(est_active=True).first()
+        return bool(annee_active and self.annee_scolaire_id == annee_active.id)
+
+    def get_sexe_display(self):
+        return str(self.sexe) if self.sexe else ""
+
+    def get_statut_display(self):
+        return str(self.statut) if self.statut else ""
     
     def __str__(self):
         masp_status = " (MASP)" if self.est_masp else ""

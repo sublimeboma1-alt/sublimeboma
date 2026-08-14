@@ -5,6 +5,32 @@
 
 {% block content %}
 <div class="container mt-4">
+
+<!-- AJOUT: Alerte année scolaire active -->
+{% if annee_active %}
+<div class="alert alert-info alert-dismissible fade show mb-3" role="alert">
+    <i class="fas fa-calendar-alt"></i>
+    <strong>Année scolaire active :</strong> {{ annee_active.annee }} 
+    ({{ annee_active.date_debut|date:"d/m/Y" }} - {{ annee_active.date_fin|date:"d/m/Y" }})
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    <br>
+    <small class="text-muted">
+        <i class="fas fa-info-circle"></i> La date d'inscription sera automatiquement enregistrée dans cette année scolaire
+    </small>
+</div>
+{% else %}
+<div class="alert alert-danger mb-3">
+    <i class="fas fa-exclamation-triangle"></i>
+    <strong>⚠️ Aucune année scolaire active !</strong> 
+    Veuillez d'abord configurer une année scolaire active avant de créer un élève.
+    <br>
+    <a href="{% url 'admin:sub_app_frais_scolaires_anneescolaire_changelist' %}" class="btn btn-danger btn-sm mt-2">
+        <i class="fas fa-cog"></i> Configurer l'année scolaire
+    </a>
+</div>
+{% endif %}
+<!-- FIN AJOUT -->
+
     <div class="row">
         <div class="col-md-8 offset-md-2">
             <div class="card">
@@ -14,6 +40,17 @@
                 <div class="card-body">
                     <form method="post" enctype="multipart/form-data" id="eleve-form">
                         {% csrf_token %}
+                        
+                        <!-- AJOUT: Affichage de l'année active dans le formulaire -->
+                        {% if annee_active %}
+                        <div class="alert alert-secondary mb-3">
+                            <i class="fas fa-calendar-check"></i>
+                            <strong>Inscription pour l'année :</strong> {{ annee_active.annee }}
+                            <br>
+                            <small>Période : {{ annee_active.date_debut|date:"d/m/Y" }} au {{ annee_active.date_fin|date:"d/m/Y" }}</small>
+                        </div>
+                        {% endif %}
+                        <!-- FIN AJOUT -->
                         
                         <!-- Sélection de la classe -->
                         <div class="alert alert-info">
@@ -69,10 +106,26 @@
                                     {% endfor %}
                                 </div>
                             {% endfor %}
+                            
+                            <!-- AJOUT: Champ date d'inscription verrouillé avec l'année active -->
+                            {% if annee_active %}
+                            <div class="alert alert-warning mt-2">
+                                <i class="fas fa-clock"></i>
+                                <small>
+                                    <strong>Note :</strong> La date d'inscription sera automatiquement enregistrée avec la date du jour 
+                                    ({{ now|date:"d/m/Y" }}). Assurez-vous qu'elle se trouve dans la période de l'année scolaire active 
+                                    ({{ annee_active.date_debut|date:"d/m/Y" }} - {{ annee_active.date_fin|date:"d/m/Y" }}).
+                                </small>
+                            </div>
+                            {% endif %}
+                            <!-- FIN AJOUT -->
+                            
                         </div>
                         
                         <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-primary">Enregistrer l'élève</button>
+                            <button type="submit" class="btn btn-primary" {% if not annee_active %}disabled{% endif %}>
+                                Enregistrer l'élève
+                            </button>
                             <a href="{% url 'eleves:liste_eleves' %}" class="btn btn-secondary">Annuler</a>
                         </div>
                     </form>
@@ -145,6 +198,18 @@ document.addEventListener('DOMContentLoaded', function() {
         niveauSelect.addEventListener('change', updateRequiredFields);
         updateRequiredFields();
     }
+    
+    // AJOUT: Vérification supplémentaire avant soumission
+    const form = document.getElementById('eleve-form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            {% if not annee_active %}
+            e.preventDefault();
+            alert('Veuillez d\'abord configurer une année scolaire active avant de créer un élève.');
+            {% endif %}
+        });
+    }
+    // FIN AJOUT
 });
 </script>
 

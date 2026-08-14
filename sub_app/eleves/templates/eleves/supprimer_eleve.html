@@ -4,10 +4,40 @@
 
 {% block content %}
 <div class="container mt-4">
+
+<!-- AJOUT: Alerte année scolaire active -->
+{% if annee_active %}
+<div class="alert alert-info alert-dismissible fade show mb-3" role="alert">
+    <i class="fas fa-calendar-alt"></i>
+    <strong>Année scolaire active :</strong> {{ annee_active.annee }} 
+    ({{ annee_active.date_debut|date:"d/m/Y" }} - {{ annee_active.date_fin|date:"d/m/Y" }})
+    {% if eleve.date_inscription %}
+    <br>
+    <small>
+        <i class="fas fa-calendar-check"></i> Inscription de l'élève : {{ eleve.date_inscription|date:"d/m/Y" }}
+        <!-- CORRECTION: Comparer l'année scolaire complète -->
+        {% if annee_inscription and annee_inscription != annee_active.annee %}
+        <span class="badge bg-warning text-dark">
+            ⚠️ Élève inscrit en {{ annee_inscription }} (année différente)
+        </span>
+        {% endif %}
+    </small>
+    {% endif %}
+</div>
+{% else %}
+<div class="alert alert-danger mb-3">
+    <i class="fas fa-exclamation-triangle"></i>
+    <strong>⚠️ Aucune année scolaire active !</strong> 
+    Veuillez configurer une année scolaire active avant de supprimer des élèves.
+</div>
+{% endif %}
+<!-- FIN AJOUT -->
+
     <div class="row">
         <div class="col-md-6 offset-md-3">
             <div class="card">
-                <div class="card-header bg-danger text-white">
+                <!-- CORRECTION: Comparer l'année scolaire complète -->
+                <div class="card-header {% if annee_inscription and annee_inscription != annee_active.annee %}bg-warning text-dark{% else %}bg-danger text-white{% endif %}">
                     <h3>Confirmation de suppression</h3>
                 </div>
                 <div class="card-body">
@@ -16,13 +46,44 @@
                     <p><strong>Matricule:</strong> {{ eleve.matricule }}</p>
                     <p><strong>Classe:</strong> {{ eleve.classe }}</p>
                     
+                    <!-- AJOUT: Informations supplémentaires sur l'inscription -->
+                    {% if eleve.date_inscription %}
+                    <div class="alert alert-secondary mt-3">
+                        <small>
+                            <strong>📅 Date d'inscription:</strong> {{ eleve.date_inscription|date:"d/m/Y" }}<br>
+                            <strong>🏫 Année scolaire d'inscription:</strong> 
+                            {% if annee_inscription %}
+                                {{ annee_inscription }}
+                            {% else %}
+                                {{ eleve.date_inscription|date:"Y" }}
+                            {% endif %}
+                        </small>
+                    </div>
+                    {% endif %}
+                    <!-- FIN AJOUT -->
+                    
                     <form method="post">
                         {% csrf_token %}
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                            <button type="submit" class="btn btn-danger">Oui, supprimer</button>
+                            <!-- CORRECTION: Comparer l'année scolaire complète -->
+                            <button type="submit" class="btn {% if annee_inscription and annee_inscription != annee_active.annee %}btn-warning{% else %}btn-danger{% endif %}">
+                                Oui, supprimer
+                            </button>
                             <a href="{% url 'eleves:detail_eleve' eleve.pk %}" class="btn btn-secondary">Non, annuler</a>
                         </div>
                     </form>
+                    
+                    <!-- CORRECTION: Comparer l'année scolaire complète -->
+                    {% if annee_inscription and annee_inscription != annee_active.annee %}
+                    <div class="alert alert-warning mt-3">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Attention :</strong> Cet élève a été inscrit pendant l'année scolaire {{ annee_inscription }}, 
+                        qui est différente de l'année active ({{ annee_active.annee }}). 
+                        La suppression sera définitive.
+                    </div>
+                    {% endif %}
+                    <!-- FIN AJOUT -->
+                    
                 </div>
             </div>
         </div>
