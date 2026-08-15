@@ -14,6 +14,7 @@ import {
 } from '../services/elevesService'
 import { useAuth } from '../../auth/context/authState'
 import AppNavbar from '../../../components/AppNavbar'
+import ErrorModal from '../../../components/ErrorModal'
 import { defaultIdentity, fetchIdentity } from '../../../services/identityService'
 
 const initialFilters = {
@@ -44,6 +45,7 @@ function ElevesPage({ openCreate = false }) {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [loadError, setLoadError] = useState('')
+  const [formError, setFormError] = useState('')
   const [references, setReferences] = useState({ annees_scolaires: [], sexes: [], statuts: [] })
   const [identity, setIdentity] = useState(defaultIdentity)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
@@ -142,6 +144,7 @@ function ElevesPage({ openCreate = false }) {
   async function handleCreateEleve(payload) {
     setIsSaving(true)
     setLoadError('')
+    setFormError('')
 
     try {
       await createEleve(cleanElevePayload(payload))
@@ -149,7 +152,7 @@ function ElevesPage({ openCreate = false }) {
       setIsCreateOpen(false)
       window.location.hash = 'eleves'
     } catch (error) {
-      setLoadError(error.message || "Impossible d'ajouter l'eleve.")
+      setFormError(error.message || "Impossible d'ajouter l'eleve.")
     } finally {
       setIsSaving(false)
     }
@@ -176,6 +179,7 @@ function ElevesPage({ openCreate = false }) {
 
     setIsSaving(true)
     setLoadError('')
+    setFormError('')
 
     try {
       const updatedEleve = await updateEleve(editingEleve.id, cleanElevePayload(payload))
@@ -185,7 +189,7 @@ function ElevesPage({ openCreate = false }) {
         setSelectedEleve(updatedEleve)
       }
     } catch (error) {
-      setLoadError(error.message || "Impossible de modifier l'eleve.")
+      setFormError(error.message || "Impossible de modifier l'eleve.")
     } finally {
       setIsSaving(false)
     }
@@ -198,6 +202,7 @@ function ElevesPage({ openCreate = false }) {
     }
 
     setLoadError('')
+    setFormError('')
 
     try {
       await deleteEleve(eleve.id)
@@ -206,7 +211,7 @@ function ElevesPage({ openCreate = false }) {
         setSelectedEleve(null)
       }
     } catch (error) {
-      setLoadError(error.message || "Impossible de supprimer l'eleve.")
+      setFormError(error.message || "Impossible de supprimer l'eleve.")
     }
   }
 
@@ -351,6 +356,7 @@ function ElevesPage({ openCreate = false }) {
         />
       )}
       <EleveDetailModal eleve={selectedEleve} onClose={() => setSelectedEleve(null)} />
+      <ErrorModal message={formError} onClose={() => setFormError('')} />
     </main>
   )
 }

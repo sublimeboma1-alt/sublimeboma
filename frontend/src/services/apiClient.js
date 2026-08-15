@@ -4,7 +4,8 @@ const MANUAL_API_BASE_URL = 'https://sublimeboma-production.up.railway.app'
 
 // Priorite : URL manuelle > variable Vite > domaine actuellement ouvert.
 // Laisser MANUAL_API_BASE_URL vide est recommande quand React est servi par Django.
-export const API_BASE_URL = MANUAL_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || window.location.origin
+const configuredApiBaseUrl = MANUAL_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || window.location.origin
+export const API_BASE_URL = configuredApiBaseUrl.replace(/\/+$/, '')
 
 export const API_ENDPOINTS = {
   auth: {
@@ -78,8 +79,18 @@ async function request(path, options = {}) {
   })
 
   if (!response.ok) {
-    const message = await response.text()
-    throw new Error(message || `Erreur API ${response.status}`)
+    let detail = ''
+    try {
+      const payload = await response.json()
+      detail = payload.detail || payload.message || Object.values(payload).flat().join(' ')
+    } catch {
+      // Les pages HTML d'erreur Django ne doivent jamais etre affichees dans l'interface.
+    }
+
+    if (response.status === 403) {
+      throw new Error('Votre session ou votre jeton de securite a expire. Actualisez la page puis reconnectez-vous.')
+    }
+    throw new Error(detail || `La requete a echoue (erreur ${response.status}).`)
   }
 
   if (response.status === 204) {

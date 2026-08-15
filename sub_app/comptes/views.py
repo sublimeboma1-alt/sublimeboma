@@ -52,7 +52,13 @@ def login_view(request):
         return JsonResponse({'detail': 'Identifiants incorrects.'}, status=400)
 
     login(request, user)
-    return JsonResponse({'is_authenticated': True, 'user': user_payload(user)})
+    # Django renouvelle le jeton CSRF apres la connexion. Le frontend doit
+    # recevoir ce nouveau jeton avant d'envoyer un POST (ex. ajout d'eleve).
+    return JsonResponse({
+        'is_authenticated': True,
+        'user': user_payload(user),
+        'csrf_token': get_token(request),
+    })
 
 
 @require_POST

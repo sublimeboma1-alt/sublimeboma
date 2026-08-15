@@ -902,6 +902,16 @@ td span {
   box-shadow: 0 26px 70px rgba(20, 33, 61, 0.28);
 }
 
+.api-error-modal {
+  width: min(420px, 100%);
+}
+
+.api-error-modal > p {
+  margin: 0;
+  color: #5d6f7c;
+  line-height: 1.55;
+}
+
 .modal-wide {
   width: min(920px, 100%);
 }
