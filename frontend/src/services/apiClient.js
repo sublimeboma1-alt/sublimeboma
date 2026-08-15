@@ -1,6 +1,10 @@
-const localBackendUrl = `${window.location.protocol}//${window.location.hostname}:8000`
+// URL a modifier manuellement si le frontend et le backend sont sur des domaines differents.
+// Exemple : 'https://sublimeboma-production.up.railway.app'
+const MANUAL_API_BASE_URL = 'https://sublimeboma-production.up.railway.app/'
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || localBackendUrl
+// Priorite : URL manuelle > variable Vite > domaine actuellement ouvert.
+// Laisser MANUAL_API_BASE_URL vide est recommande quand React est servi par Django.
+export const API_BASE_URL = MANUAL_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || window.location.origin
 
 export const API_ENDPOINTS = {
   auth: {
