@@ -1,6 +1,6 @@
 // URL a modifier manuellement si le frontend et le backend sont sur des domaines differents.
 // Exemple : 'https://sublimeboma-production.up.railway.app'
-const MANUAL_API_BASE_URL = 'https://sublimeboma-production.up.railway.app/'
+const MANUAL_API_BASE_URL = 'https://sublimeboma-production.up.railway.app'
 
 // Priorite : URL manuelle > variable Vite > domaine actuellement ouvert.
 // Laisser MANUAL_API_BASE_URL vide est recommande quand React est servi par Django.
