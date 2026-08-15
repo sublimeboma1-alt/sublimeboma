@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { API_BASE_URL } from '../../../services/apiClient'
 
 const initialForm = {
@@ -49,16 +49,72 @@ function getMediaUrl(url) {
   return url.startsWith('http') ? url : `${API_BASE_URL}${url}`
 }
 
+// Compresse la photo cote client avant l'envoi pour reduire le temps de transfert
+const PHOTO_MAX_WIDTH = 600
+const PHOTO_MAX_HEIGHT = 600
+const PHOTO_QUALITY = 0.75
+
+function compressImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const img = new Image()
+      img.onload = () => {
+        let { width, height } = img
+        const ratio = Math.min(PHOTO_MAX_WIDTH / width, PHOTO_MAX_HEIGHT / height, 1)
+        if (ratio < 1) {
+          width = Math.round(width * ratio)
+          height = Math.round(height * ratio)
+        }
+
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(img, 0, 0, width, height)
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error("Impossible de compresser l'image."))
+              return
+            }
+            const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.webp'), {
+              type: 'image/webp',
+            })
+            resolve(compressedFile)
+          },
+          'image/webp',
+          PHOTO_QUALITY
+        )
+      }
+      img.onerror = () => reject(new Error("Impossible de lire l'image."))
+      img.src = event.target.result
+    }
+    reader.onerror = () => reject(new Error("Impossible de lire le fichier."))
+    reader.readAsDataURL(file)
+  })
+}
+
 function EleveFormModal({ classes, eleve, references, isOpen, mode = 'create', onClose, onSubmit, isSaving }) {
   const [form, setForm] = useState(() => getInitialForm(eleve))
   const [photoPreview, setPhotoPreview] = useState(getMediaUrl(eleve?.photo_url))
+  const [isCompressing, setIsCompressing] = useState(false)
   const selectedLevel = form.niveau_code
-  const filteredClasses = selectedLevel
-    ? classes.filter((classe) => classe.niveau_code === selectedLevel)
-    : []
-  const levelSummary = selectedLevel
-    ? `${filteredClasses.length} classe${filteredClasses.length > 1 ? 's' : ''} disponible${filteredClasses.length > 1 ? 's' : ''}`
-    : 'Choisir le niveau avant la classe'
+
+  const filteredClasses = useMemo(() => {
+    if (!selectedLevel) {
+      return []
+    }
+    return classes.filter((classe) => classe.niveau_code === selectedLevel)
+  }, [classes, selectedLevel])
+
+  const levelSummary = useMemo(() => {
+    if (!selectedLevel) {
+      return 'Choisir le niveau avant la classe'
+    }
+    return `${filteredClasses.length} classe${filteredClasses.length > 1 ? 's' : ''} disponible${filteredClasses.length > 1 ? 's' : ''}`
+  }, [selectedLevel, filteredClasses.length])
 
   if (!isOpen) {
     return null
@@ -73,10 +129,23 @@ function EleveFormModal({ classes, eleve, references, isOpen, mode = 'create', o
     }))
   }
 
-  function handlePhotoChange(event) {
+  async function handlePhotoChange(event) {
     const file = event.target.files?.[0] || null
-    setForm((current) => ({ ...current, photo_file: file }))
-    setPhotoPreview(file ? URL.createObjectURL(file) : getMediaUrl(eleve?.photo_url))
+    if (!file) {
+      return
+    }
+
+    setPhotoPreview(URL.createObjectURL(file))
+    setIsCompressing(true)
+    try {
+      const compressed = await compressImage(file)
+      setForm((current) => ({ ...current, photo_file: compressed }))
+    } catch {
+      // En cas d'echec, on envoie le fichier original
+      setForm((current) => ({ ...current, photo_file: file }))
+    } finally {
+      setIsCompressing(false)
+    }
   }
 
   function handleSubmit(event) {
@@ -108,7 +177,9 @@ function EleveFormModal({ classes, eleve, references, isOpen, mode = 'create', o
             <label>
               Photo de l'eleve
               <input name="photo_file" type="file" accept="image/*" onChange={handlePhotoChange} />
-              <span className="field-note">La photo sera optimisee automatiquement apres l'enregistrement.</span>
+              <span className="field-note">
+                {isCompressing ? 'Compression de la photo...' : 'La photo sera optimisee automatiquement avant l\'envoi.'}
+              </span>
             </label>
           </div>
 
@@ -194,7 +265,7 @@ function EleveFormModal({ classes, eleve, references, isOpen, mode = 'create', o
 
           <footer className="modal-actions">
             <button type="button" className="ghost-action" onClick={onClose}>Annuler</button>
-            <button type="submit" className="primary-action" disabled={isSaving}>
+            <button type="submit" className="primary-action" disabled={isSaving || isCompressing}>
               {isSaving ? 'Enregistrement' : mode === 'edit' ? 'Mettre a jour' : 'Enregistrer'}
             </button>
           </footer>

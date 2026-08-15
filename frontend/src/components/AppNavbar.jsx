@@ -139,10 +139,9 @@ function AppNavbar({ identity, onNavigate }) {
       </div>
       <style>{`
         .app-navbar.top-nav {
-          width: 100vw;
-          max-width: 100vw;
-          margin-right: calc(50% - 50vw);
-          margin-left: calc(50% - 50vw);
+          width: 100%;
+          max-width: 100%;
+          margin: 0;
           align-self: stretch;
           background: linear-gradient(115deg, #061b34 0%, #0a4962 50%, #0b827a 100%);
           border-bottom: 1px solid rgba(255, 255, 255, 0.16);
