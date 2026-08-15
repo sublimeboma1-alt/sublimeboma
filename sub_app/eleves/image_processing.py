@@ -7,7 +7,7 @@ from django.utils.text import slugify
 from PIL import Image, ImageOps
 
 
-PHOTO_MAX_SIZE = (900, 900)
+PHOTO_MAX_SIZE = (800, 800)
 PHOTO_QUALITY = 82
 
 
@@ -27,7 +27,8 @@ def compress_uploaded_photo(uploaded_file):
             image = image.convert('RGB')
 
         output = BytesIO()
-        image.save(output, format='WEBP', quality=PHOTO_QUALITY, method=6)
+        # Methode 4 : tres bonne compression, mais nettement plus rapide que 6.
+        image.save(output, format='WEBP', quality=PHOTO_QUALITY, method=4)
         output.seek(0)
     except Exception as error:
         raise ValueError("La photo n'est pas une image valide.") from error

@@ -136,19 +136,15 @@ function ElevesPage({ openCreate = false }) {
     await loadElevesWithFilters(nextFilters)
   }
 
-  async function reloadEleves() {
-    const elevesData = await fetchEleves({ annee_scolaire: filters.annee_scolaire })
-    setEleves(elevesData)
-  }
-
   async function handleCreateEleve(payload) {
     setIsSaving(true)
     setLoadError('')
     setFormError('')
 
     try {
-      await createEleve(cleanElevePayload(payload))
-      await reloadEleves()
+      const createdEleve = await createEleve(cleanElevePayload(payload))
+      // Evite un second appel qui recharge toute la liste apres chaque ajout.
+      setEleves((current) => [createdEleve, ...current])
       setIsCreateOpen(false)
       window.location.hash = 'eleves'
     } catch (error) {

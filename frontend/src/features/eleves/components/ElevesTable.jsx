@@ -18,7 +18,7 @@ function ElevesTable({ eleves, onDelete, onEdit, onViewDetails }) {
           <span>{eleves.length} dossier(s)</span>
         </div>
       </div>
-      <table>
+      <table className="eleves-table">
         <thead>
           <tr>
             <th>Matricule</th>

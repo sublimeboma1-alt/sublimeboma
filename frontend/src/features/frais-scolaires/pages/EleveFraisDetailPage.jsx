@@ -17,7 +17,6 @@ function EleveFraisDetailPage({ eleveId, onBack }) {
   const { user, signOut } = useAuth()
   const [identity, setIdentity] = useState(defaultIdentity)
   const [detail, setDetail] = useState(null)
-  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [references, setReferences] = useState({ modes_paiement: [] })
   const [paymentTarget, setPaymentTarget] = useState(null)
@@ -32,7 +31,6 @@ function EleveFraisDetailPage({ eleveId, onBack }) {
     fetchEleveDetail(eleveId)
       .then((data) => { if (mounted) setDetail(data) })
       .catch((err) => { if (mounted) setError(err.message || 'Impossible de charger le detail.') })
-      .finally(() => { if (mounted) setLoading(false) })
     return () => { mounted = false }
   }, [eleveId])
 
@@ -84,9 +82,7 @@ function EleveFraisDetailPage({ eleveId, onBack }) {
           <span aria-hidden="true">←</span> Retour a la situation des eleves
         </button>
 
-        {loading ? (
-          <p className="fees-loading-detail">Chargement du detail...</p>
-        ) : error && !detail ? (
+        {error && !detail ? (
           <div className="error-state">{error}</div>
         ) : detail && (
           <>

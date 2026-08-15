@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from decimal import Decimal
 from sub_app.eleves.models import Eleve, Classe, NiveauClasse, ClasseMaternelle
 
 
@@ -155,7 +156,20 @@ class FraisScolaire(models.Model):
     @property
     def total_paye(self):
         """Calculer le total payé pour ce frais"""
-        return self.paiements.filter(statut_id='valide').aggregate(total=models.Sum('montant_paye'))['total'] or 0
+        if hasattr(self, '_cached_total_paye'):
+            return self._cached_total_paye
+
+        prefetched = getattr(self, '_prefetched_objects_cache', {}).get('paiements')
+        if prefetched is not None:
+            total = sum(
+                (payment.montant_paye for payment in prefetched if payment.statut_id == 'valide'),
+                Decimal('0'),
+            )
+        else:
+            total = self.paiements.filter(statut_id='valide').aggregate(total=models.Sum('montant_paye'))['total'] or 0
+
+        self._cached_total_paye = total
+        return total
     
     @property
     def solde_restant(self):
