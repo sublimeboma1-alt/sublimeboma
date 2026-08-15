@@ -27,7 +27,7 @@ SECRET_KEY = 'django-insecure-q-)s-tz%r!)z_=@oz5f9k*+&p)^z*sf#uohj8x3_95s%p_iqyh
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['sublimeboma.pythonanywhere.com', 'www.sublimeboma.pythonanywhere.com', '127.0.0.1', 'localhost']
+ALLOWED_HOSTS = ['sublimeboma-production.up.railway.app', '127.0.0.1', 'localhost']
 CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:5173',
     'http://localhost:5173',
