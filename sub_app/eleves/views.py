@@ -168,6 +168,9 @@ def eleves_list_create(request):
         try:
             data = clean_eleve_payload(parse_request_data(request))
             eleve = Eleve(**data, created_by=request.user)
+            # full_clean() verifie les champs avant save(). Le matricule doit
+            # donc etre genere ici (il etait auparavant genere trop tard).
+            eleve.matricule = eleve.generate_matricule()
             eleve.full_clean()
             eleve.save()
         except ValidationError as error:

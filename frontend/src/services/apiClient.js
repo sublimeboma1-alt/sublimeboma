@@ -59,6 +59,30 @@ function getCookie(name) {
   return ''
 }
 
+function formatApiError(payload) {
+  if (!payload) {
+    return ''
+  }
+  if (typeof payload === 'string') {
+    return payload
+  }
+  if (payload.detail || payload.message) {
+    return payload.detail || payload.message
+  }
+
+  const errors = payload.errors || payload
+  if (typeof errors !== 'object') {
+    return ''
+  }
+
+  return Object.entries(errors)
+    .map(([field, messages]) => {
+      const text = Array.isArray(messages) ? messages.join(' ') : String(messages)
+      return `${field.replaceAll('_', ' ')} : ${text}`
+    })
+    .join(' ')
+}
+
 async function request(path, options = {}) {
   const isFormData = options.body instanceof FormData
   const headers = {
@@ -82,7 +106,7 @@ async function request(path, options = {}) {
     let detail = ''
     try {
       const payload = await response.json()
-      detail = payload.detail || payload.message || Object.values(payload).flat().join(' ')
+      detail = formatApiError(payload)
     } catch {
       // Les pages HTML d'erreur Django ne doivent jamais etre affichees dans l'interface.
     }
