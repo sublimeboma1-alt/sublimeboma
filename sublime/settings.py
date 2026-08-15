@@ -27,8 +27,9 @@ SECRET_KEY = 'django-insecure-q-)s-tz%r!)z_=@oz5f9k*+&p)^z*sf#uohj8x3_95s%p_iqyh
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['sublimeboma-production.up.railway.app', '127.0.0.1', 'localhost']
+ALLOWED_HOSTS = ['sublimeboma-production.up.railway.app', '127.0.0.1', 'localhost', 'https://sublimeboma-production.up.railway.app/']
 CSRF_TRUSTED_ORIGINS = [
+    'https://sublimeboma-production.up.railway.app/',
     'http://127.0.0.1:5173',
     'http://localhost:5173',
     'http://127.0.0.1:5174',
@@ -56,6 +57,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'sublime.cors.LocalCorsMiddleware',
@@ -70,7 +72,8 @@ ROOT_URLCONF = 'sublime.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        # Le index.html construit par React/Vite est rendu par Django.
+        'DIRS': [BASE_DIR / 'frontend' / 'dist'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -150,7 +153,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 
 # Configuration des médias (pour les photos)
 MEDIA_URL = '/media/'
@@ -161,16 +164,10 @@ import os
 
 
 
+# Les assets generes par Vite (dist/assets) sont exposes par Django sous /static/.
 STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, "static"),
+    BASE_DIR / 'frontend' / 'dist',
 ]
-
-
-
-
-# Static files
-
-STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

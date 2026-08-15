@@ -1,4 +1,5 @@
 from django.http import JsonResponse
+from django.shortcuts import render
 
 from .models import IdentiteEtablissement
 
@@ -26,7 +27,8 @@ def serialize_identite(identite):
 
 
 def home(request):
-    return JsonResponse({'application': 'sublime', 'status': 'ok'})
+    """Rend le build React situe dans frontend/dist/index.html."""
+    return render(request, 'index.html')
 
 
 def identite_etablissement(request):
