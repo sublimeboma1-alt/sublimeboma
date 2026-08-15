@@ -36,7 +36,7 @@ function matchesSearch(eleve, search) {
     .some((field) => field.toLowerCase().includes(value))
 }
 
-function ElevesPage() {
+function ElevesPage({ openCreate = false }) {
   const { user, signOut } = useAuth()
   const [eleves, setEleves] = useState([])
   const [classes, setClasses] = useState([])
@@ -51,6 +51,8 @@ function ElevesPage() {
   const [selectedEleve, setSelectedEleve] = useState(null)
   const toolbarRef = useRef(null)
   const tableRef = useRef(null)
+
+  useEffect(() => { setIsCreateOpen(openCreate) }, [openCreate])
 
   useEffect(() => {
     let isMounted = true
@@ -145,6 +147,7 @@ function ElevesPage() {
       await createEleve(cleanElevePayload(payload))
       await reloadEleves()
       setIsCreateOpen(false)
+      window.location.hash = 'eleves'
     } catch (error) {
       setLoadError(error.message || "Impossible d'ajouter l'eleve.")
     } finally {
@@ -331,7 +334,7 @@ function ElevesPage() {
           references={references}
           isOpen
           isSaving={isSaving}
-          onClose={() => setIsCreateOpen(false)}
+          onClose={() => { setIsCreateOpen(false); window.location.hash = 'eleves' }}
           onSubmit={handleCreateEleve}
         />
       )}

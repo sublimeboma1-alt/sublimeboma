@@ -30,6 +30,10 @@ export const API_ENDPOINTS = {
   depense: {
     categories: '/depense/api/categories/',
   },
+  repartition: {
+    dashboard: '/repartition/api/dashboard/',
+    settings: '/repartition/api/parametres/',
+  },
   noyau: {
     identite: '/api/identite-etablissement/',
   },

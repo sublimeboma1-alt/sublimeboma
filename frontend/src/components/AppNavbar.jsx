@@ -6,8 +6,8 @@ const navSections = [
     icon: '●',
     active: true,
     items: [
-      { label: 'Liste des eleves', action: 'eleves.list' },
-      { label: 'Nouvelle inscription', action: 'eleves.create' },
+      { label: 'Liste des eleves', href: '#eleves' },
+      { label: 'Nouvelle inscription', href: '#eleves/nouveau' },
     ],
   },
   {
@@ -24,13 +24,14 @@ const navSections = [
     label: 'Finances',
     icon: '¤',
     items: [
-      { label: 'Situation eleves', action: 'fees.situation' },
-      { label: 'Annee scolaire', action: 'fees.years' },
-      { label: 'Configurer tarifs', action: 'fees.tariffs' },
-      { label: 'Appliquer tarifs', action: 'fees.apply' },
-      { label: 'Statistiques', action: 'fees.statistics' },
-      { label: 'Exports', action: 'exports.open' },
-      { label: 'Depenses', action: 'finances.depenses' },
+      { label: 'Situation eleves', href: '#frais-situation' },
+      { label: 'Annee scolaire', href: '#frais-annees' },
+      { label: 'Configurer tarifs', href: '#frais-tarifs' },
+      { label: 'Appliquer tarifs', href: '#frais-appliquer' },
+      { label: 'Statistiques', href: '#statistiques' },
+      { label: 'Repartition', href: '#repartition' },
+      { label: 'Exports', href: '#exports' },
+      { label: 'Depenses', href: '#depenses' },
     ],
   },
   {

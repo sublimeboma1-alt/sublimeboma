@@ -27,6 +27,7 @@ urlpatterns = [
     path('eleves/', include('sub_app.eleves.urls')),
     path('frais_scolaires/', include('sub_app.frais_scolaires.urls')),
     path('depense/', include('sub_app.depense.urls')),  
+    path('repartition/', include('sub_app.repartition.urls')),
 ]
 # Servir les fichiers médias en développement
 if settings.DEBUG:
