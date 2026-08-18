@@ -235,7 +235,7 @@ class CodeJetonAdmin(admin.ModelAdmin):
     search_fields = ['code', 'description']
     list_editable = ['est_actif']
     list_per_page = 25
-    readonly_fields = ['code', 'date_creation', 'date_utilisation', 'cree_par', 'utilise_par']
+    readonly_fields = ['code', 'annee_scolaire', 'date_creation', 'date_utilisation', 'cree_par', 'utilise_par']
     actions = ['desactiver_jetons', 'activer_jetons']
     
     fieldsets = (
@@ -278,6 +278,11 @@ class CodeJetonAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         if not obj.cree_par:
             obj.cree_par = request.user
+        # Forcer l'annee scolaire active
+        from .models import AnneeScolaire
+        annee_active = AnneeScolaire.objects.filter(est_active=True).first()
+        if annee_active:
+            obj.annee_scolaire = annee_active
         super().save_model(request, obj, form, change)
     
     def get_queryset(self, request):

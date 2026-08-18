@@ -1,0 +1,53 @@
+import json
+
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_protect
+from django.views.decorators.http import require_http_methods
+
+from .models import CodeJeton
+
+
+@csrf_protect
+@require_http_methods(['POST'])
+@login_required
+def valider_jeton(request):
+    """Valide un code jeton et retourne son perimetre d'acces."""
+    try:
+        data = json.loads(request.body or '{}')
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'valide': False, 'message': 'Requete invalide.'}, status=400)
+
+    code = (data.get('code') or '').strip().upper()
+    if not code:
+        return JsonResponse({'valide': False, 'message': 'Veuillez saisir un code jeton.'}, status=400)
+
+    jeton = CodeJeton.objects.filter(code=code).select_related(
+        'niveau', 'classe', 'type_frais', 'annee_scolaire', 'trimestre'
+    ).first()
+
+    if not jeton:
+        return JsonResponse({'valide': False, 'message': 'Code jeton introuvable.'}, status=404)
+
+    if not jeton.est_valide():
+        return JsonResponse({'valide': False, 'message': 'Ce jeton est expire ou desactive.'}, status=403)
+
+    # Ne pas marquer comme utilise - le jeton reste valide pendant la session
+    # Construire le perimetre d'acces
+    perimetre = {
+        'valide': True,
+        'code': jeton.code,
+        'description': jeton.description or '',
+        'niveau_code': jeton.niveau_id,
+        'niveau_libelle': str(jeton.niveau) if jeton.niveau else None,
+        'classe_id': jeton.classe_id,
+        'classe_nom': str(jeton.classe) if jeton.classe else None,
+        'type_frais_code': jeton.type_frais_id,
+        'type_frais_libelle': str(jeton.type_frais) if jeton.type_frais else None,
+        'annee_scolaire_id': jeton.annee_scolaire_id,
+        'annee_scolaire': str(jeton.annee_scolaire) if jeton.annee_scolaire else None,
+        'trimestre_numero': jeton.trimestre_id,
+        'trimestre_libelle': str(jeton.trimestre) if jeton.trimestre else None,
+    }
+
+    return JsonResponse(perimetre)

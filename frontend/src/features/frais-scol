@@ -1,0 +1,85 @@
+import { API_ENDPOINTS, apiClient } from '../../../services/apiClient'
+
+function results(payload) {
+  return payload?.results || []
+}
+
+/**
+ * Lit le jeton actif depuis sessionStorage et retourne les parametres de perimetre.
+ * Ces parametres sont envoyes avec chaque requete API pour filtrer les donnees
+ * selon le perimetre d'acces du jeton.
+ */
+function getJetonParams() {
+  try {
+    const stored = sessionStorage.getItem('sublime_jeton')
+    if (!stored) return {}
+    const jeton = JSON.parse(stored)
+    if (!jeton?.valide) return {}
+    const params = {}
+    if (jeton.niveau_code) params.niveau = jeton.niveau_code
+    if (jeton.classe_id) params.classe = jeton.classe_id
+    if (jeton.type_frais_code) params.type_frais = jeton.type_frais_code
+    if (jeton.annee_scolaire_id) params.annee = jeton.annee_scolaire_id
+    if (jeton.trimestre_numero) params.trimestre = jeton.trimestre_numero
+    return params
+  } catch {
+    return {}
+  }
+}
+
+/**
+ * Fusionne les parametres fournis avec ceux du jeton.
+ * Les parametres explicites ont priorite sur ceux du jeton.
+ */
+function withJetonParams(params = {}) {
+  return { ...getJetonParams(), ...params }
+}
+
+function buildQuery(params = {}) {
+  const merged = withJetonParams(params)
+  const query = new URLSearchParams(
+    Object.entries(merged).filter(([, value]) => value !== '' && value !== undefined && value !== null)
+  ).toString()
+  return query ? `?${query}` : ''
+}
+
+export async function fetchFeesDashboard() {
+  return apiClient.get(`${API_ENDPOINTS.frais.dashboard}${buildQuery()}`)
+}
+
+export async function fetchFeesStatistics(params = {}) {
+  return apiClient.get(`${API_ENDPOINTS.frais.statistics}${buildQuery(params)}`)
+}
+
+export async function fetchDossiers(params = {}) {
+  return results(await apiClient.get(`${API_ENDPOINTS.frais.dossiers}${buildQuery(params)}`))
+}
+
+export async function fetchPayments(params = {}) {
+  return results(await apiClient.get(`${API_ENDPOINTS.frais.paiements}${buildQuery(params)}`))
+}
+
+export async function createPayment(payload) {
+  return apiClient.post(API_ENDPOINTS.frais.paiements, payload)
+}
+
+export async function fetchFeesReferences() { return apiClient.get(API_ENDPOINTS.frais.references) }
+export async function fetchYears() { return results(await apiClient.get(API_ENDPOINTS.frais.annees)) }
+export async function createYear(payload) { return apiClient.post(API_ENDPOINTS.frais.annees, payload) }
+export async function fetchTariffs() { return results(await apiClient.get(API_ENDPOINTS.frais.tarifs)) }
+export async function createTariff(payload) { return apiClient.post(API_ENDPOINTS.frais.tarifs, payload) }
+export async function applyTariff(tarifId) { return apiClient.post(API_ENDPOINTS.frais.apply, { tarif_id: tarifId }) }
+export async function fetchEleveDetail(eleveId) { return apiClient.get(API_ENDPOINTS.frais.eleveDetail(eleveId)) }
+
+export async function exportSchoolData(params = {}) {
+  const query = buildQuery(params)
+  const blob = await apiClient.getBlob(`${API_ENDPOINTS.frais.exports}${query}`)
+  const extension = params.format === 'pdf' ? 'pdf' : 'xlsx'
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  link.download = `${params.scope === 'frais' ? 'rapport_frais' : 'inscriptions'}.${extension}`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(link.href)
+}
