@@ -188,7 +188,7 @@ class FraisScolaire(models.Model):
             return 'partiel'
     
     def __str__(self):
-        return f"{self.eleve.nom} {self.eleve.prenom} - {self.get_trimestre_display()} - {self.type_frais}"
+        return f"{self.get_trimestre_display()} - {self.type_frais} - {self.montant_total} FC"
 
     def get_trimestre_display(self):
         return str(self.trimestre) if self.trimestre else ""
@@ -196,7 +196,7 @@ class FraisScolaire(models.Model):
     class Meta:
         verbose_name = "Frais scolaire"
         verbose_name_plural = "Frais scolaires"
-        unique_together = ['eleve', 'annee_scolaire', 'trimestre', 'type_frais']
+        unique_together = ['annee_scolaire', 'trimestre', 'type_frais']
 
 
 class CodeJeton(models.Model):

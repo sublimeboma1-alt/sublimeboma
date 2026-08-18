@@ -139,7 +139,7 @@ class FraisScolaireAdmin(admin.ModelAdmin):
     list_display = ['eleve_display', 'classe_eleve', 'annee_scolaire', 'trimestre', 
                     'type_frais', 'montant_total_formate', 'statut_paiement_badge', 
                     'solde_restant_formate', 'pourcentage_paiement']
-    list_filter = ['annee_scolaire', 'trimestre', 'type_frais', 'eleve__classe']
+    list_filter = ['annee_scolaire', 'trimestre', 'type_frais']
     search_fields = ['eleve__nom', 'eleve__prenom', 'eleve__matricule', 'description']
     list_select_related = ['eleve', 'annee_scolaire']
     readonly_fields = ['date_creation', 'date_modification']
