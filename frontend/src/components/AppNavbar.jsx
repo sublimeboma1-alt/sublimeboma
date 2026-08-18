@@ -122,7 +122,7 @@ function AppNavbar({ identity, onNavigate }) {
                         {section.label}
                         {section.requiresJeton && estActif && jeton && (
                           <span className="jeton-badge">
-                            {jeton.eleve_nom || jeton.classe_nom || jeton.type_frais_libelle || 'Acces general'}
+                            {jeton.niveau_libelle || jeton.classe_nom || jeton.type_frais_libelle || 'Acces general'}
                           </span>
                         )}
                       </div>

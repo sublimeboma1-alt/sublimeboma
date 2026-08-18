@@ -145,7 +145,7 @@ class FraisScolaire(models.Model):
         (3, '3ème Trimestre'),
     ]
     
-    eleve = models.ForeignKey(Eleve, on_delete=models.CASCADE, related_name='frais_inscription', verbose_name="Élève")
+    niveau = models.ForeignKey(NiveauClasse, to_field="code", on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Niveau")
     annee_scolaire = models.ForeignKey(AnneeScolaire, on_delete=models.CASCADE, related_name='frais', verbose_name="Année scolaire")
     trimestre = models.ForeignKey(Trimestre, to_field='numero', on_delete=models.PROTECT, verbose_name="Trimestre")
     type_frais = models.ForeignKey(TypeFrais, to_field='code', on_delete=models.PROTECT, verbose_name="Type de frais")
@@ -210,7 +210,7 @@ class CodeJeton(models.Model):
     description = models.CharField(max_length=255, blank=True, null=True, verbose_name="Description")
     
     # Périmètre d'accès (tous optionnels — si vide, accès général)
-    eleve = models.ForeignKey(Eleve, on_delete=models.CASCADE, blank=True, null=True, verbose_name="Élève")
+    niveau = models.ForeignKey(NiveauClasse, to_field="code", on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Niveau")
     classe = models.ForeignKey(Classe, on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Classe")
     type_frais = models.ForeignKey(TypeFrais, to_field='code', on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Type de frais")
     annee_scolaire = models.ForeignKey(AnneeScolaire, on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Année scolaire")
@@ -229,6 +229,8 @@ class CodeJeton(models.Model):
     def save(self, *args, **kwargs):
         if not self.code:
             self.code = self.generer_code()
+        if not self.annee_scolaire_id:
+            self.annee_scolaire = AnneeScolaire.objects.filter(est_active=True).first()
         super().save(*args, **kwargs)
     
     def generer_code(self):
@@ -257,8 +259,8 @@ class CodeJeton(models.Model):
     
     def __str__(self):
         cible = []
-        if self.eleve:
-            cible.append(str(self.eleve))
+        if self.niveau:
+            cible.append(str(self.niveau))
         if self.classe:
             cible.append(str(self.classe))
         if self.type_frais:
@@ -274,7 +276,7 @@ class CodeJeton(models.Model):
 
 class Paiement(models.Model):
     frais = models.ForeignKey(FraisScolaire, on_delete=models.CASCADE, related_name='paiements', verbose_name="Frais concerné")
-    eleve = models.ForeignKey(Eleve, on_delete=models.CASCADE, related_name='paiements', verbose_name="Élève")
+    niveau = models.ForeignKey(NiveauClasse, to_field="code", on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Niveau")
     montant_paye = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Montant payé")
     date_paiement = models.DateField(default=timezone.now, verbose_name="Date de paiement")
     mode_paiement = models.ForeignKey(ModePaiement, to_field='code', on_delete=models.PROTECT, verbose_name="Mode de paiement")

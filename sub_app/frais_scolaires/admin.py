@@ -230,9 +230,9 @@ class FraisScolaireAdmin(admin.ModelAdmin):
 
 @admin.register(CodeJeton)
 class CodeJetonAdmin(admin.ModelAdmin):
-    list_display = ['code_court', 'description', 'eleve', 'classe', 'type_frais', 'annee_scolaire', 'trimestre', 'est_actif', 'statut_utilisation', 'date_creation', 'date_expiration']
-    list_filter = ['est_actif', 'annee_scolaire', 'trimestre', 'type_frais', 'classe']
-    search_fields = ['code', 'description', 'eleve__nom', 'eleve__prenom', 'eleve__matricule']
+    list_display = ['code_court', 'description', 'niveau', 'classe', 'type_frais', 'annee_scolaire', 'trimestre', 'est_actif', 'statut_utilisation', 'date_creation', 'date_expiration']
+    list_filter = ['est_actif', 'annee_scolaire', 'trimestre', 'type_frais', 'classe', 'niveau']
+    search_fields = ['code', 'description']
     list_editable = ['est_actif']
     list_per_page = 25
     readonly_fields = ['code', 'date_creation', 'date_utilisation', 'cree_par', 'utilise_par']
@@ -243,7 +243,7 @@ class CodeJetonAdmin(admin.ModelAdmin):
             'fields': ('code', 'description')
         }),
         ('Périmètre d\'accès', {
-            'fields': ('eleve', 'classe', 'type_frais', 'annee_scolaire', 'trimestre'),
+            'fields': ('niveau', 'classe', 'type_frais', 'annee_scolaire', 'trimestre'),
             'description': 'Définissez les données auxquelles ce jeton donne accès. Laissez vide pour un accès général.'
         }),
         ('Validité', {
@@ -281,7 +281,7 @@ class CodeJetonAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
     
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related('eleve', 'classe', 'type_frais', 'annee_scolaire', 'trimestre', 'cree_par', 'utilise_par')
+        return super().get_queryset(request).select_related('niveau', 'classe', 'type_frais', 'annee_scolaire', 'trimestre', 'cree_par', 'utilise_par')
 
 
 @admin.register(Paiement)

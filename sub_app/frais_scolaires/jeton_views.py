@@ -23,7 +23,7 @@ def valider_jeton(request):
         return JsonResponse({'valide': False, 'message': 'Veuillez saisir un code jeton.'}, status=400)
 
     jeton = CodeJeton.objects.filter(code=code).select_related(
-        'eleve', 'classe', 'type_frais', 'annee_scolaire', 'trimestre'
+        'niveau', 'classe', 'type_frais', 'annee_scolaire', 'trimestre'
     ).first()
 
     if not jeton:
@@ -40,8 +40,8 @@ def valider_jeton(request):
         'valide': True,
         'code': jeton.code,
         'description': jeton.description or '',
-        'eleve_id': jeton.eleve_id,
-        'eleve_nom': str(jeton.eleve) if jeton.eleve else None,
+        'niveau_code': jeton.niveau_id,
+        'niveau_libelle': str(jeton.niveau) if jeton.niveau else None,
         'classe_id': jeton.classe_id,
         'classe_nom': str(jeton.classe) if jeton.classe else None,
         'type_frais_code': jeton.type_frais_id,
