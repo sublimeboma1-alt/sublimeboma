@@ -196,7 +196,7 @@ class FraisScolaire(models.Model):
     class Meta:
         verbose_name = "Frais scolaire"
         verbose_name_plural = "Frais scolaires"
-        unique_together = ['annee_scolaire', 'trimestre', 'type_frais']
+        # unique_together retire (eleve n'existe plus dans le modele)
 
 
 class CodeJeton(models.Model):
