@@ -101,7 +101,7 @@ def export_dataframe(request):
     scope = request.GET.get('scope', 'inscriptions')
     if scope == 'frais':
         rows = export_filters(
-            Paiement.objects.select_related('eleve__classe__niveau', 'frais__annee_scolaire', 'frais__trimestre', 'frais__type_frais', 'mode_paiement', 'statut'), request, year_lookup='frais__annee_scolaire_id'
+            Paiement.objects.select_related('frais__annee_scolaire', 'frais__trimestre', 'frais__type_frais', 'mode_paiement', 'statut'), request, year_lookup='frais__annee_scolaire_id'
         )
         status = request.GET.get('statut', '').strip()
         trimestre = request.GET.get('trimestre', '').strip()
@@ -113,9 +113,8 @@ def export_dataframe(request):
         if type_frais:
             rows = rows.filter(frais__type_frais_id=type_frais)
         data = [{
-            'Recu': row.reference, 'Date paiement': row.date_paiement, 'Matricule': row.eleve.matricule,
-            'Eleve': f'{row.eleve.nom} {row.eleve.post_nom} {row.eleve.prenom}'.strip(),
-            'Classe': str(row.eleve.classe or ''), 'Niveau': str(row.eleve.classe.niveau) if row.eleve.classe else '',
+            'Recu': row.reference, 'Date paiement': row.date_paiement, 'Matricule': '',
+            'Eleve': '', 'Classe': '', 'Niveau': '',
             'Annee scolaire': str(row.frais.annee_scolaire), 'Trimestre': str(row.frais.trimestre),
             'Type de frais': str(row.frais.type_frais), 'Montant paye': float(row.montant_paye),
             'Mode de paiement': str(row.mode_paiement), 'Statut': str(row.statut), 'Observation': row.description or '',
@@ -227,7 +226,7 @@ def selected_year(request):
 
 def dossiers_queryset(request):
     year = selected_year(request)
-    frais = FraisScolaire.objects.select_related('eleve__classe').prefetch_related('paiements')
+    frais = FraisScolaire.objects.select_related('niveau').prefetch_related('paiements')
     if year:
         frais = frais.filter(annee_scolaire=year)
     return frais, year
@@ -236,9 +235,8 @@ def dossiers_queryset(request):
 def grouped_dossiers(request):
     frais, year = dossiers_queryset(request)
     groups = defaultdict(list)
-    for item in frais:
-        groups[item.eleve].append(item)
-    return [serialize_dossier(eleve, items) for eleve, items in groups.items()], year
+    # FraisScolaire n'a plus de champ eleve - on retourne les frais directement
+    return [serialize_dossier(None, [item]) for item in frais], year
 
 
 def financial_filters(queryset, request, relation='eleve__', year_key=None):
@@ -259,7 +257,7 @@ def financial_filters(queryset, request, relation='eleve__', year_key=None):
 @require_http_methods(['GET'])
 def statistiques(request):
     """Tableau de bord financier filtre, sans action d'enregistrement de paiement."""
-    fees = financial_filters(FraisScolaire.objects.select_related('eleve__classe', 'trimestre', 'type_frais'), request, year_key='annee_scolaire')
+    fees = financial_filters(FraisScolaire.objects.select_related('niveau', 'trimestre', 'type_frais'), request, year_key='annee_scolaire')
     trimestre = request.GET.get('trimestre', '')
     type_frais = request.GET.get('type_frais', '')
     if trimestre:
@@ -267,7 +265,7 @@ def statistiques(request):
     if type_frais:
         fees = fees.filter(type_frais_id=type_frais)
     expected = fees.aggregate(total=Sum('montant_total'))['total'] or Decimal('0')
-    payments = Paiement.objects.select_related('eleve', 'frais__type_frais', 'frais__trimestre', 'mode_paiement').filter(statut_id='valide', frais__in=fees).order_by('-date_paiement', '-id')
+    payments = Paiement.objects.select_related('frais__type_frais', 'frais__trimestre', 'mode_paiement').filter(statut_id='valide', frais__in=fees).order_by('-date_paiement', '-id')
     date_debut = request.GET.get('date_debut', '')
     date_fin = request.GET.get('date_fin', '')
     if date_debut:
@@ -341,7 +339,7 @@ def eleve_detail(request, eleve_id):
     eleve = Eleve.objects.select_related('classe', 'classe__niveau', 'classe__section', 'annee_scolaire').filter(id=eleve_id).first()
     if not eleve:
         return JsonResponse({'detail': 'Eleve introuvable.'}, status=404)
-    frais = FraisScolaire.objects.select_related('trimestre', 'type_frais').prefetch_related('paiements__mode_paiement', 'paiements__agent').filter(eleve=eleve)
+    frais = FraisScolaire.objects.select_related('trimestre', 'type_frais').prefetch_related('paiements__mode_paiement', 'paiements__agent').filter(niveau=eleve.classe.niveau if eleve.classe else None)
     return JsonResponse(serialize_eleve_detail(eleve, list(frais)))
 
 
@@ -358,7 +356,7 @@ def paiements(request):
         except ValidationError as error:
             return JsonResponse({'errors': error.message_dict}, status=400)
         return JsonResponse(serialize_paiement(paiement), status=201)
-    queryset = Paiement.objects.select_related('eleve', 'frais', 'mode_paiement').order_by('-date_paiement', '-id')
+    queryset = Paiement.objects.select_related('frais', 'mode_paiement').order_by('-date_paiement', '-id')
     year = selected_year(request)
     if year:
         queryset = queryset.filter(frais__annee_scolaire=year)
@@ -439,6 +437,6 @@ def appliquer_tarif(request):
     created = 0
     with transaction.atomic():
         for eleve in eleves:
-            _, was_created = FraisScolaire.objects.get_or_create(eleve=eleve, annee_scolaire=tariff.annee_scolaire, trimestre=tariff.trimestre, type_frais=tariff.type_frais, defaults={'montant_total': tariff.montant})
+            _, was_created = FraisScolaire.objects.get_or_create(niveau=tariff.niveau, annee_scolaire=tariff.annee_scolaire, trimestre=tariff.trimestre, type_frais=tariff.type_frais, defaults={'montant_total': tariff.montant})
             created += was_created
     return JsonResponse({'created': created, 'eligible': eleves.count()})
