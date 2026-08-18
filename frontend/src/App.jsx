@@ -6,9 +6,11 @@ import DepensesPage from './features/depenses/pages/DepensesPage'
 import ExportsPage from './features/exports/pages/ExportsPage'
 import RepartitionPage from './features/repartition/pages/RepartitionPage'
 import { AuthProvider } from './features/auth/context/AuthProvider'
+import { JetonProvider } from './features/auth/context/JetonContext'
 import { useAuth } from './features/auth/context/authState'
 import LoginPage from './features/auth/pages/LoginPage'
 import './App.css'
+import './jeton.css'
 
 function ProtectedApp() {
   const { isAuthenticated, isLoading } = useAuth()
@@ -50,7 +52,9 @@ function ProtectedApp() {
 function App() {
   return (
     <AuthProvider>
-      <ProtectedApp />
+      <JetonProvider>
+        <ProtectedApp />
+      </JetonProvider>
     </AuthProvider>
   )
 }

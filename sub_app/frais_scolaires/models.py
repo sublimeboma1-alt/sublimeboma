@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 from decimal import Decimal
+import uuid
 from sub_app.eleves.models import Eleve, Classe, NiveauClasse, ClasseMaternelle
 
 
@@ -196,6 +197,80 @@ class FraisScolaire(models.Model):
         verbose_name = "Frais scolaire"
         verbose_name_plural = "Frais scolaires"
         unique_together = ['eleve', 'annee_scolaire', 'trimestre', 'type_frais']
+
+
+class CodeJeton(models.Model):
+    """Code d'accès temporaire pour les fonctionnalités financières.
+    
+    Permet de créer un jeton lié à des données spécifiques (élève, type de frais,
+    classe, année scolaire, trimestre) pour limiter l'accès de l'utilisateur
+    aux seules données liées au jeton.
+    """
+    code = models.CharField(max_length=64, unique=True, editable=False, verbose_name="Code du jeton")
+    description = models.CharField(max_length=255, blank=True, null=True, verbose_name="Description")
+    
+    # Périmètre d'accès (tous optionnels — si vide, accès général)
+    eleve = models.ForeignKey(Eleve, on_delete=models.CASCADE, blank=True, null=True, verbose_name="Élève")
+    classe = models.ForeignKey(Classe, on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Classe")
+    type_frais = models.ForeignKey(TypeFrais, to_field='code', on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Type de frais")
+    annee_scolaire = models.ForeignKey(AnneeScolaire, on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Année scolaire")
+    trimestre = models.ForeignKey(Trimestre, to_field='numero', on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Trimestre")
+    
+    # État du jeton
+    est_actif = models.BooleanField(default=True, verbose_name="Actif")
+    date_creation = models.DateTimeField(auto_now_add=True, verbose_name="Date de création")
+    date_expiration = models.DateTimeField(blank=True, null=True, verbose_name="Date d'expiration")
+    date_utilisation = models.DateTimeField(blank=True, null=True, verbose_name="Date d'utilisation")
+    
+    # Traçabilité
+    cree_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='jetons_crees', verbose_name="Créé par")
+    utilise_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='jetons_utilises', verbose_name="Utilisé par")
+    
+    def save(self, *args, **kwargs):
+        if not self.code:
+            self.code = self.generer_code()
+        super().save(*args, **kwargs)
+    
+    def generer_code(self):
+        """Génère un code unique de 16 caractères alphanumériques."""
+        while True:
+            code = uuid.uuid4().hex[:16].upper()
+            if not CodeJeton.objects.filter(code=code).exists():
+                return code
+    
+    def est_valide(self):
+        """Vérifie si le jeton est encore valide."""
+        from django.utils import timezone
+        if not self.est_actif:
+            return False
+        if self.date_expiration and self.date_expiration < timezone.now():
+            return False
+        return True
+    
+    def marquer_utilise(self, user=None):
+        """Marque le jeton comme utilisé."""
+        from django.utils import timezone
+        self.date_utilisation = timezone.now()
+        if user:
+            self.utilise_par = user
+        self.save(update_fields=['date_utilisation', 'utilise_par'])
+    
+    def __str__(self):
+        cible = []
+        if self.eleve:
+            cible.append(str(self.eleve))
+        if self.classe:
+            cible.append(str(self.classe))
+        if self.type_frais:
+            cible.append(str(self.type_frais))
+        cible_str = " - ".join(cible) if cible else "Accès général"
+        return f"Jeton {self.code[:8]}... ({cible_str})"
+    
+    class Meta:
+        verbose_name = "Code jeton"
+        verbose_name_plural = "Codes jeton"
+        ordering = ['-date_creation']
+
 
 class Paiement(models.Model):
     frais = models.ForeignKey(FraisScolaire, on_delete=models.CASCADE, related_name='paiements', verbose_name="Frais concerné")

@@ -1,12 +1,14 @@
 from django.urls import path
 
 from . import views
+from .jeton_views import valider_jeton
 
 
 app_name = 'frais_scolaires'
 
 
 urlpatterns = [
+    path('api/jetons/valider/', valider_jeton, name='valider_jeton'),
     path('api/references/', views.references, name='references'),
     path('api/exports/', views.export_data, name='export_data'),
     path('api/dashboard/', views.dashboard, name='dashboard'),

@@ -5,7 +5,7 @@ from django.utils.safestring import mark_safe
 from django.urls import reverse
 from django.utils import timezone
 from django.db.models import Sum
-from .models import AnneeScolaire, TarifFrais, FraisScolaire, Paiement, TypeFrais, ModePaiement, StatutPaiement, Trimestre
+from .models import AnneeScolaire, TarifFrais, FraisScolaire, Paiement, TypeFrais, ModePaiement, StatutPaiement, Trimestre, CodeJeton
 from sub_app.eleves.models import Eleve
 
 @admin.register(AnneeScolaire)
@@ -226,6 +226,62 @@ class FraisScolaireAdmin(admin.ModelAdmin):
     
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('eleve', 'annee_scolaire', 'type_frais', 'trimestre').prefetch_related('paiements')
+
+
+@admin.register(CodeJeton)
+class CodeJetonAdmin(admin.ModelAdmin):
+    list_display = ['code_court', 'description', 'eleve', 'classe', 'type_frais', 'annee_scolaire', 'trimestre', 'est_actif', 'statut_utilisation', 'date_creation', 'date_expiration']
+    list_filter = ['est_actif', 'annee_scolaire', 'trimestre', 'type_frais', 'classe']
+    search_fields = ['code', 'description', 'eleve__nom', 'eleve__prenom', 'eleve__matricule']
+    list_editable = ['est_actif']
+    list_per_page = 25
+    readonly_fields = ['code', 'date_creation', 'date_utilisation', 'cree_par', 'utilise_par']
+    actions = ['desactiver_jetons', 'activer_jetons']
+    
+    fieldsets = (
+        ('Code du jeton', {
+            'fields': ('code', 'description')
+        }),
+        ('Périmètre d\'accès', {
+            'fields': ('eleve', 'classe', 'type_frais', 'annee_scolaire', 'trimestre'),
+            'description': 'Définissez les données auxquelles ce jeton donne accès. Laissez vide pour un accès général.'
+        }),
+        ('Validité', {
+            'fields': ('est_actif', 'date_expiration')
+        }),
+        ('Traçabilité', {
+            'fields': ('cree_par', 'utilise_par', 'date_creation', 'date_utilisation'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def code_court(self, obj):
+        return obj.code[:8] + '...' if obj.code else '-'
+    code_court.short_description = "Code"
+    
+    def statut_utilisation(self, obj):
+        if obj.date_utilisation:
+            return mark_safe(f'<span style="color: #6b7a89;">● Utilisé le {obj.date_utilisation.strftime("%d/%m/%Y %H:%M")}</span>')
+        return mark_safe('<span style="color: green;">● Non utilisé</span>')
+    statut_utilisation.short_description = "Utilisation"
+    
+    def desactiver_jetons(self, request, queryset):
+        updated = queryset.update(est_actif=False)
+        self.message_user(request, f"{updated} jeton(s) désactivé(s)")
+    desactiver_jetons.short_description = "Désactiver les jetons sélectionnés"
+    
+    def activer_jetons(self, request, queryset):
+        updated = queryset.update(est_actif=True)
+        self.message_user(request, f"{updated} jeton(s) activé(s)")
+    activer_jetons.short_description = "Activer les jetons sélectionnés"
+    
+    def save_model(self, request, obj, form, change):
+        if not obj.cree_par:
+            obj.cree_par = request.user
+        super().save_model(request, obj, form, change)
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('eleve', 'classe', 'type_frais', 'annee_scolaire', 'trimestre', 'cree_par', 'utilise_par')
 
 
 @admin.register(Paiement)
