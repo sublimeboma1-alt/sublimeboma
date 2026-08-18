@@ -10,6 +10,7 @@ from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_http_methods
 
 from sub_app.frais_scolaires.models import AnneeScolaire, Paiement, TypeFrais
+from sub_app.frais_scolaires.jeton_views import finance_jeton_required
 from .models import CategorieRepartition, LigneRepartition, ParametreRepartition, RegleRepartition
 from .services import rebuild_distributions_for_parameter
 
@@ -26,19 +27,28 @@ def serialize_rules(parameter):
     return [{'categorie_id': rule.categorie_id, 'code': rule.categorie.code, 'libelle': rule.categorie.libelle, 'couleur': rule.categorie.couleur, 'pourcentage': float(rule.pourcentage)} for rule in rules]
 
 
-def active_year():
+def active_year(jeton=None):
+    if jeton and jeton.annee_scolaire_id:
+        return jeton.annee_scolaire
     return AnneeScolaire.objects.filter(est_active=True).first()
 
 
 @login_required
+@finance_jeton_required
 @csrf_protect
 @require_http_methods(['GET', 'POST'])
 def parametres(request):
-    types = list(TypeFrais.objects.filter(est_actif=True).order_by('libelle'))
-    year = active_year()
+    jeton = request.finance_jeton
+    types = TypeFrais.objects.filter(est_actif=True).order_by('libelle')
+    if jeton.type_frais_id:
+        types = types.filter(code=jeton.type_frais_id)
+    types = list(types)
+    year = active_year(jeton)
     if request.method == 'POST':
         data = request_data(request)
         type_frais = TypeFrais.objects.filter(code=data.get('type_frais'), est_actif=True).first()
+        if jeton.type_frais_id and data.get('type_frais') != jeton.type_frais_id:
+            return JsonResponse({'detail': 'Ce type de frais est hors du perimetre de votre jeton.'}, status=403)
         name = str(data.get('nom', '')).strip()
         allocations = data.get('allocations', [])
         if not year or not type_frais or not name or not isinstance(allocations, list) or not allocations:
@@ -67,6 +77,8 @@ def parametres(request):
             'paiements_repartis': payments_processed,
         })
     parameters = ParametreRepartition.objects.select_related('type_frais').prefetch_related('regles__categorie').filter(annee_scolaire=year) if year else ParametreRepartition.objects.none()
+    if jeton.type_frais_id:
+        parameters = parameters.filter(type_frais_id=jeton.type_frais_id)
     return JsonResponse({
         'categories': [{'id': item.id, 'code': item.code, 'libelle': item.libelle, 'couleur': item.couleur} for item in CategorieRepartition.objects.filter(est_active=True)],
         'types_frais': [{'code': item.code, 'libelle': item.libelle} for item in types],
@@ -76,19 +88,31 @@ def parametres(request):
 
 
 @login_required
+@finance_jeton_required
 @require_http_methods(['GET'])
 def dashboard(request):
-    type_frais = request.GET.get('type_frais', '')
+    jeton = request.finance_jeton
+    type_frais = jeton.type_frais_id or request.GET.get('type_frais', '')
     date_start = request.GET.get('date_debut', '')
     date_end = request.GET.get('date_fin', '')
-    year = active_year()
+    year = active_year(jeton)
     lines = LigneRepartition.objects.select_related('paiement__frais__type_frais', 'paiement__eleve', 'categorie').filter(paiement__statut_id='valide')
     if year:
         lines = lines.filter(paiement__frais__annee_scolaire=year)
     else:
         lines = lines.none()
+    if jeton.niveau_id:
+        lines = lines.filter(paiement__frais__niveau_id=jeton.niveau_id)
+    if jeton.type_frais_id:
+        lines = lines.filter(paiement__frais__type_frais_id=jeton.type_frais_id)
+    if jeton.trimestre_id:
+        lines = lines.filter(paiement__frais__trimestre_id=jeton.trimestre_id)
+    if jeton.classe_id:
+        lines = lines.filter(paiement__eleve__classe_id=jeton.classe_id)
     parameter_id = request.GET.get('parametre_id', '')
     parameters = ParametreRepartition.objects.select_related('type_frais').filter(annee_scolaire=year, est_actif=True) if year else ParametreRepartition.objects.none()
+    if jeton.type_frais_id:
+        parameters = parameters.filter(type_frais_id=jeton.type_frais_id)
     if not parameters.exists():
         lines = lines.none()
     if parameter_id:

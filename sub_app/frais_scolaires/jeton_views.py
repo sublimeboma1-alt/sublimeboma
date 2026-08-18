@@ -8,6 +8,61 @@ from django.views.decorators.http import require_http_methods
 from .models import CodeJeton
 
 
+SESSION_JETON_KEY = 'finance_jeton_code'
+SESSION_JETON_USER_KEY = 'finance_jeton_user_id'
+
+
+def active_finance_jeton(request):
+    """Return the token stored in this user's server-side session, if valid."""
+    code = request.session.get(SESSION_JETON_KEY)
+    if not code or request.session.get(SESSION_JETON_USER_KEY) != request.user.id:
+        return None
+    jeton = CodeJeton.objects.filter(code=code).select_related(
+        'niveau', 'classe', 'type_frais', 'annee_scolaire', 'trimestre'
+    ).first()
+    if not jeton or not jeton.est_valide():
+        request.session.pop(SESSION_JETON_KEY, None)
+        request.session.pop(SESSION_JETON_USER_KEY, None)
+        return None
+    return jeton
+
+
+def finance_jeton_required(view):
+    """Protect every financial API even when it is called outside the UI."""
+    def wrapped(request, *args, **kwargs):
+        request.finance_jeton = active_finance_jeton(request)
+        if not request.finance_jeton:
+            return JsonResponse({'detail': 'Un code jeton finance valide est requis.'}, status=403)
+        return view(request, *args, **kwargs)
+    return wrapped
+
+
+def scope_frais(queryset, jeton):
+    """Apply non-negotiable token constraints to a FraisScolaire queryset."""
+    if jeton.annee_scolaire_id:
+        queryset = queryset.filter(annee_scolaire_id=jeton.annee_scolaire_id)
+    if jeton.niveau_id:
+        queryset = queryset.filter(niveau_id=jeton.niveau_id)
+    if jeton.type_frais_id:
+        queryset = queryset.filter(type_frais_id=jeton.type_frais_id)
+    if jeton.trimestre_id:
+        queryset = queryset.filter(trimestre_id=jeton.trimestre_id)
+    return queryset
+
+
+def scope_tarifs(queryset, jeton):
+    """Apply the fields that exist directly on a TarifFrais queryset."""
+    if jeton.annee_scolaire_id:
+        queryset = queryset.filter(annee_scolaire_id=jeton.annee_scolaire_id)
+    if jeton.niveau_id:
+        queryset = queryset.filter(niveau_id=jeton.niveau_id)
+    if jeton.type_frais_id:
+        queryset = queryset.filter(type_frais_id=jeton.type_frais_id)
+    if jeton.trimestre_id:
+        queryset = queryset.filter(trimestre_id=jeton.trimestre_id)
+    return queryset
+
+
 @csrf_protect
 @require_http_methods(['POST'])
 @login_required
@@ -34,6 +89,9 @@ def valider_jeton(request):
 
     # Marquer le jeton comme utilise
     jeton.marquer_utilise(user=request.user)
+    # The browser may be modified; the real authorization is kept server-side.
+    request.session[SESSION_JETON_KEY] = jeton.code
+    request.session[SESSION_JETON_USER_KEY] = request.user.id
 
     # Construire le perimetre d'acces
     perimetre = {
@@ -53,3 +111,12 @@ def valider_jeton(request):
     }
 
     return JsonResponse(perimetre)
+
+
+@csrf_protect
+@require_http_methods(['POST'])
+@login_required
+def quitter_jeton(request):
+    request.session.pop(SESSION_JETON_KEY, None)
+    request.session.pop(SESSION_JETON_USER_KEY, None)
+    return JsonResponse({'ok': True})

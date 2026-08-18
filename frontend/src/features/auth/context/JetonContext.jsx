@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
-import { validerCodeJeton } from '../../../services/jetonService'
+import { quitterModeFinance, validerCodeJeton } from '../../../services/jetonService'
 
 const JetonContext = createContext(null)
 
@@ -51,6 +51,8 @@ export function JetonProvider({ children }) {
     setJeton(null)
     setErreur('')
     sessionStorage.removeItem(STORAGE_KEY)
+    // Clear the server-side authorization too; a local storage change is not enough.
+    quitterModeFinance().catch(() => {})
   }, [])
 
   const estActif = !!jeton?.valide

@@ -8,12 +8,15 @@ import RepartitionPage from './features/repartition/pages/RepartitionPage'
 import { AuthProvider } from './features/auth/context/AuthProvider'
 import { JetonProvider } from './features/auth/context/JetonContext'
 import { useAuth } from './features/auth/context/authState'
+import { useJeton } from './features/auth/context/JetonContext'
+import JetonModal from './features/auth/components/JetonModal'
 import LoginPage from './features/auth/pages/LoginPage'
 import './App.css'
 import './jeton.css'
 
 function ProtectedApp() {
   const { isAuthenticated, isLoading } = useAuth()
+  const { estActif } = useJeton()
   const [route, setRoute] = useState(() => window.location.hash.slice(1) || 'eleves')
 
   useEffect(() => {
@@ -37,6 +40,10 @@ function ProtectedApp() {
   }
 
   const feeTabs = { paiements: 'statistics', statistiques: 'statistics', 'frais-situation': 'dossiers', 'frais-annees': 'years', 'frais-tarifs': 'tariffs', 'frais-appliquer': 'apply' }
+  const isFinanceRoute = route === 'depenses' || route === 'exports' || route === 'repartition' || route === 'parametres' || route.startsWith('frais') || route === 'paiements' || route === 'statistiques'
+  if (isFinanceRoute && !estActif) {
+    return <JetonModal isOpen onClose={() => { window.location.hash = 'eleves' }} onSuccess={() => {}} />
+  }
   if (route === 'depenses') return <DepensesPage />
   if (route === 'exports') return <ExportsPage />
   if (route === 'parametres') return <RepartitionPage mode="settings" />

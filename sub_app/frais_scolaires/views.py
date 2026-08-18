@@ -18,6 +18,7 @@ from django.views.decorators.http import require_http_methods
 from .models import AnneeScolaire, FraisScolaire, ModePaiement, Paiement, TarifFrais, TypeFrais, Trimestre
 from sub_app.eleves.models import Classe, Eleve, NiveauClasse, Sexe, StatutEleve
 from .serializers import clean_paiement_payload, serialize_dossier, serialize_eleve_detail, serialize_paiement
+from .jeton_views import finance_jeton_required, scope_frais, scope_tarifs
 
 
 def export_identity():
@@ -103,6 +104,7 @@ def export_dataframe(request):
         rows = export_filters(
             Paiement.objects.select_related('frais__annee_scolaire', 'frais__trimestre', 'frais__type_frais', 'mode_paiement', 'statut'), request, year_lookup='frais__annee_scolaire_id'
         )
+        rows = rows.filter(frais__in=scope_frais(FraisScolaire.objects.all(), request.finance_jeton))
         status = request.GET.get('statut', '').strip()
         trimestre = request.GET.get('trimestre', '').strip()
         type_frais = request.GET.get('type_frais', '').strip()
@@ -124,6 +126,13 @@ def export_dataframe(request):
     rows = export_filters(
         Eleve.objects.select_related('annee_scolaire', 'classe__niveau', 'sexe', 'statut'), request, prefix=''
     )
+    jeton = request.finance_jeton
+    if jeton.annee_scolaire_id:
+        rows = rows.filter(annee_scolaire_id=jeton.annee_scolaire_id)
+    if jeton.niveau_id:
+        rows = rows.filter(classe__niveau_id=jeton.niveau_id)
+    if jeton.classe_id:
+        rows = rows.filter(classe_id=jeton.classe_id)
     statut = request.GET.get('statut', '').strip()
     sexe = request.GET.get('sexe', '').strip()
     if statut:
@@ -141,6 +150,7 @@ def export_dataframe(request):
 
 
 @login_required
+@finance_jeton_required
 @require_http_methods(['GET'])
 def export_data(request):
     """Genere un XLSX ou PDF a partir des filtres recus depuis l'interface."""
@@ -218,6 +228,9 @@ def payload(request):
 
 
 def selected_year(request):
+    jeton = getattr(request, 'finance_jeton', None)
+    if jeton and jeton.annee_scolaire_id:
+        return jeton.annee_scolaire
     value = request.GET.get('annee_scolaire', '')
     if value:
         return AnneeScolaire.objects.filter(id=value).first()
@@ -226,7 +239,7 @@ def selected_year(request):
 
 def dossiers_queryset(request):
     year = selected_year(request)
-    frais = FraisScolaire.objects.select_related('niveau').prefetch_related('paiements')
+    frais = scope_frais(FraisScolaire.objects.select_related('niveau').prefetch_related('paiements'), request.finance_jeton)
     if year:
         frais = frais.filter(annee_scolaire=year)
     return frais, year
@@ -244,22 +257,25 @@ def financial_filters(queryset, request, relation='eleve__', year_key=None):
     year = selected_year(request)
     if year:
         queryset = queryset.filter(**{year_key or ('annee_scolaire' if relation == '' else f'{relation}annee_scolaire'): year})
-    niveau = request.GET.get('niveau', '')
+    niveau = request.finance_jeton.niveau_id or request.GET.get('niveau', '')
     classe_id = request.GET.get('classe_id', '')
     if niveau:
         queryset = queryset.filter(**{f'{relation}classe__niveau_id': niveau})
+    if request.finance_jeton.classe_id:
+        classe_id = request.finance_jeton.classe_id
     if classe_id:
         queryset = queryset.filter(**{f'{relation}classe_id': classe_id})
     return queryset
 
 
 @login_required
+@finance_jeton_required
 @require_http_methods(['GET'])
 def statistiques(request):
-    """Tableau de bord financier filtre, sans action d'enregistrement de paiement."""
-    fees = financial_filters(FraisScolaire.objects.select_related('niveau', 'trimestre', 'type_frais'), request, year_key='annee_scolaire')
-    trimestre = request.GET.get('trimestre', '')
-    type_frais = request.GET.get('type_frais', '')
+    """Tableau de bord financier filtre par le perimetre du jeton."""
+    fees = scope_frais(FraisScolaire.objects.select_related('niveau', 'trimestre', 'type_frais'), request.finance_jeton)
+    trimestre = request.finance_jeton.trimestre_id or request.GET.get('trimestre', '')
+    type_frais = request.finance_jeton.type_frais_id or request.GET.get('type_frais', '')
     if trimestre:
         fees = fees.filter(trimestre_id=trimestre)
     if type_frais:
@@ -296,6 +312,7 @@ def statistiques(request):
 
 
 @login_required
+@finance_jeton_required
 @require_http_methods(['GET'])
 def references(request):
     active = AnneeScolaire.objects.filter(est_active=True).first()
@@ -308,10 +325,22 @@ def references(request):
             'classe': str(item.classe_maternel or item.classe_primaire or item.classe_humanite or ''),
             'section': str(item.section) if item.section else '',
         })
-    return JsonResponse({'annees_scolaires': [{'id': item.id, 'annee': item.annee, 'est_active': item.est_active} for item in AnneeScolaire.objects.all()], 'annee_active_id': active.id if active else None, 'modes_paiement': [{'code': item.code, 'libelle': item.libelle} for item in ModePaiement.objects.filter(est_actif=True)], 'niveaux': [{'code': item.code, 'libelle': item.libelle} for item in NiveauClasse.objects.filter(est_actif=True)], 'types_frais': [{'code': item.code, 'libelle': item.libelle} for item in TypeFrais.objects.filter(est_actif=True)], 'trimestres': [{'code': item.numero, 'libelle': item.libelle} for item in Trimestre.objects.filter(est_actif=True)], 'classes': classes})
+    jeton = request.finance_jeton
+    annees = AnneeScolaire.objects.all()
+    niveaux = NiveauClasse.objects.filter(est_actif=True)
+    types = TypeFrais.objects.filter(est_actif=True)
+    trimestres = Trimestre.objects.filter(est_actif=True)
+    if jeton.annee_scolaire_id: annees = annees.filter(id=jeton.annee_scolaire_id)
+    if jeton.niveau_id: niveaux = niveaux.filter(code=jeton.niveau_id); classes = [item for item in classes if item['niveau'] == jeton.niveau_id]
+    if jeton.classe_id: classes = [item for item in classes if item['id'] == jeton.classe_id]
+    if jeton.type_frais_id: types = types.filter(code=jeton.type_frais_id)
+    if jeton.trimestre_id: trimestres = trimestres.filter(numero=jeton.trimestre_id)
+    active = jeton.annee_scolaire if jeton.annee_scolaire_id else active
+    return JsonResponse({'annees_scolaires': [{'id': item.id, 'annee': item.annee, 'est_active': item.est_active} for item in annees], 'annee_active_id': active.id if active else None, 'modes_paiement': [{'code': item.code, 'libelle': item.libelle} for item in ModePaiement.objects.filter(est_actif=True)], 'niveaux': [{'code': item.code, 'libelle': item.libelle} for item in niveaux], 'types_frais': [{'code': item.code, 'libelle': item.libelle} for item in types], 'trimestres': [{'code': item.numero, 'libelle': item.libelle} for item in trimestres], 'classes': classes})
 
 
 @login_required
+@finance_jeton_required
 @require_http_methods(['GET'])
 def dashboard(request):
     dossiers, year = grouped_dossiers(request)
@@ -321,6 +350,7 @@ def dashboard(request):
 
 
 @login_required
+@finance_jeton_required
 @require_http_methods(['GET'])
 def dossiers(request):
     results, year = grouped_dossiers(request)
@@ -334,29 +364,36 @@ def dossiers(request):
 
 
 @login_required
+@finance_jeton_required
 @require_http_methods(['GET'])
 def eleve_detail(request, eleve_id):
     eleve = Eleve.objects.select_related('classe', 'classe__niveau', 'classe__section', 'annee_scolaire').filter(id=eleve_id).first()
-    if not eleve:
+    if not eleve or (request.finance_jeton.classe_id and eleve.classe_id != request.finance_jeton.classe_id) or (request.finance_jeton.niveau_id and (not eleve.classe or eleve.classe.niveau_id != request.finance_jeton.niveau_id)):
         return JsonResponse({'detail': 'Eleve introuvable.'}, status=404)
-    frais = FraisScolaire.objects.select_related('trimestre', 'type_frais').prefetch_related('paiements__mode_paiement', 'paiements__agent').filter(niveau=eleve.classe.niveau if eleve.classe else None)
+    frais = scope_frais(FraisScolaire.objects.select_related('trimestre', 'type_frais').prefetch_related('paiements__mode_paiement', 'paiements__agent').filter(niveau=eleve.classe.niveau if eleve.classe else None), request.finance_jeton)
     return JsonResponse(serialize_eleve_detail(eleve, list(frais)))
 
 
 @login_required
+@finance_jeton_required
 @csrf_protect
 @require_http_methods(['GET', 'POST'])
 def paiements(request):
     if request.method == 'POST':
         try:
             with transaction.atomic():
-                paiement = clean_paiement_payload(payload(request), request.user)
+                data = payload(request)
+                frais_id = data.get('frais_id')
+                if not scope_frais(FraisScolaire.objects.filter(id=frais_id), request.finance_jeton).exists():
+                    return JsonResponse({'detail': 'Ce frais est hors du perimetre de votre jeton.'}, status=403)
+                paiement = clean_paiement_payload(data, request.user)
                 paiement.full_clean()
                 paiement.save()
         except ValidationError as error:
             return JsonResponse({'errors': error.message_dict}, status=400)
         return JsonResponse(serialize_paiement(paiement), status=201)
-    queryset = Paiement.objects.select_related('frais', 'mode_paiement').order_by('-date_paiement', '-id')
+    frais_autorises = scope_frais(FraisScolaire.objects.all(), request.finance_jeton)
+    queryset = Paiement.objects.select_related('frais', 'mode_paiement').filter(frais__in=frais_autorises).order_by('-date_paiement', '-id')
     year = selected_year(request)
     if year:
         queryset = queryset.filter(frais__annee_scolaire=year)
@@ -364,6 +401,7 @@ def paiements(request):
 
 
 @login_required
+@finance_jeton_required
 @csrf_protect
 @require_http_methods(['GET', 'POST'])
 def annees(request):
@@ -381,13 +419,26 @@ def annees(request):
 
 
 @login_required
+@finance_jeton_required
 @csrf_protect
 @require_http_methods(['GET', 'POST'])
 def tarifs(request):
     if request.method == 'POST':
         try:
             data = payload(request)
+            jeton = request.finance_jeton
+            constraints = {
+                'annee_scolaire_id': jeton.annee_scolaire_id,
+                'niveau': jeton.niveau_id,
+                'trimestre': jeton.trimestre_id,
+                'type_frais': jeton.type_frais_id,
+            }
+            for field, expected in constraints.items():
+                if expected and str(data.get(field)) != str(expected):
+                    return JsonResponse({'detail': f'Le champ {field} est impose par votre jeton.'}, status=403)
             classe_id = data.get('classe_id')
+            if jeton.classe_id and str(classe_id) != str(jeton.classe_id):
+                return JsonResponse({'detail': 'La classe est imposee par votre jeton.'}, status=403)
             if classe_id:
                 classe = Classe.objects.select_related('section', 'classe_maternel', 'classe_primaire', 'classe_humanite').filter(id=classe_id).first()
                 if not classe:
@@ -419,21 +470,30 @@ def tarifs(request):
             return JsonResponse({'detail': str(error)}, status=400)
         return JsonResponse({'id': item.id}, status=201)
     year = selected_year(request)
-    rows = TarifFrais.objects.select_related('niveau', 'trimestre', 'type_frais').filter(annee_scolaire=year) if year else TarifFrais.objects.none()
+    rows = scope_tarifs(TarifFrais.objects.select_related('niveau', 'trimestre', 'type_frais').filter(annee_scolaire=year), request.finance_jeton) if year else TarifFrais.objects.none()
     return JsonResponse({'results': [{'id': item.id, 'niveau': str(item.niveau), 'classe': str(item.classe_maternel or item.classe_primaire or item.classe_humanite or ''), 'option': item.option_humanite or '', 'trimestre': str(item.trimestre), 'type_frais': str(item.type_frais), 'montant': float(item.montant)} for item in rows]})
 
 
 @login_required
+@finance_jeton_required
 @csrf_protect
 @require_http_methods(['POST'])
 def appliquer_tarif(request):
     data = payload(request)
-    tariff = TarifFrais.objects.select_related('annee_scolaire').get(id=data.get('tarif_id'))
+    tariff = scope_tarifs(TarifFrais.objects.select_related('annee_scolaire'), request.finance_jeton).filter(id=data.get('tarif_id')).first()
+    if not tariff:
+        return JsonResponse({'detail': 'Tarif introuvable ou hors du perimetre de votre jeton.'}, status=404)
+    if request.finance_jeton.classe_id:
+        target_class = request.finance_jeton.classe
+        if target_class.niveau_id != tariff.niveau_id:
+            return JsonResponse({'detail': 'Ce tarif ne correspond pas a la classe du jeton.'}, status=403)
     eleves = Eleve.objects.filter(annee_scolaire=tariff.annee_scolaire, classe__niveau_id=tariff.niveau_id)
     if tariff.classe_maternel_id: eleves = eleves.filter(classe__classe_maternel_id=tariff.classe_maternel_id)
     if tariff.classe_primaire: eleves = eleves.filter(classe__classe_primaire__code=tariff.classe_primaire)
     if tariff.classe_humanite: eleves = eleves.filter(classe__classe_humanite__code=tariff.classe_humanite)
     if tariff.option_humanite: eleves = eleves.filter(classe__section__code=tariff.option_humanite)
+    if request.finance_jeton.classe_id:
+        eleves = eleves.filter(classe_id=request.finance_jeton.classe_id)
     created = 0
     with transaction.atomic():
         for eleve in eleves:
