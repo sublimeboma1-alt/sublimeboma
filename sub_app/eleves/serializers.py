@@ -51,7 +51,10 @@ def serialize_classe(classe):
 
 def serialize_eleve(eleve):
     classe = eleve.classe
-    annee_scolaire = eleve.annee_scolaire or get_annee_scolaire_for_date(eleve.date_inscription)
+    # Evite une requete supplementaire si l'annee est deja chargee (select_related)
+    annee_scolaire = eleve.annee_scolaire
+    if not annee_scolaire and eleve.date_inscription:
+        annee_scolaire = get_annee_scolaire_for_date(eleve.date_inscription)
 
     return {
         'id': eleve.id,
@@ -120,23 +123,27 @@ def clean_eleve_payload(payload, *, partial=False):
     if 'classe_id' in payload:
         classe_id = payload.get('classe_id')
         if classe_id:
-            try:
-                data['classe'] = Classe.objects.get(id=classe_id)
-            except Classe.DoesNotExist:
+            # filter().first() est plus rapide que get() avec try/except
+            classe = Classe.objects.filter(id=classe_id).first()
+            if classe:
+                data['classe'] = classe
+            else:
                 errors['classe_id'] = 'Classe introuvable.'
         else:
             data['classe'] = None
 
     if 'sexe' in payload:
-        try:
-            data['sexe'] = Sexe.objects.get(code=payload.get('sexe'))
-        except Sexe.DoesNotExist:
+        sexe = Sexe.objects.filter(code=payload.get('sexe')).first()
+        if sexe:
+            data['sexe'] = sexe
+        else:
             errors['sexe'] = 'Sexe introuvable.'
 
     if 'statut' in payload:
-        try:
-            data['statut'] = StatutEleve.objects.get(code=payload.get('statut'))
-        except StatutEleve.DoesNotExist:
+        statut = StatutEleve.objects.filter(code=payload.get('statut')).first()
+        if statut:
+            data['statut'] = statut
+        else:
             errors['statut'] = 'Statut introuvable.'
 
     photo = payload.get('photo_file')

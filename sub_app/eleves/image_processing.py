@@ -7,8 +7,8 @@ from django.utils.text import slugify
 from PIL import Image, ImageOps
 
 
-PHOTO_MAX_SIZE = (800, 800)
-PHOTO_QUALITY = 82
+PHOTO_MAX_SIZE = (600, 600)
+PHOTO_QUALITY = 75
 
 
 def _webp_name(original_name, fallback='photo'):
@@ -21,14 +21,15 @@ def compress_uploaded_photo(uploaded_file):
     try:
         image = Image.open(uploaded_file)
         image = ImageOps.exif_transpose(image)
-        image.thumbnail(PHOTO_MAX_SIZE, Image.Resampling.LANCZOS)
+        # BILINEAR est plus rapide que LANCZOS pour un rendu quasi identique a cette taille
+        image.thumbnail(PHOTO_MAX_SIZE, Image.Resampling.BILINEAR)
 
         if image.mode not in ('RGB', 'RGBA'):
             image = image.convert('RGB')
 
         output = BytesIO()
-        # Methode 4 : tres bonne compression, mais nettement plus rapide que 6.
-        image.save(output, format='WEBP', quality=PHOTO_QUALITY, method=4)
+        # Methode 3 : compression plus rapide que 4, qualite visuelle quasi identique
+        image.save(output, format='WEBP', quality=PHOTO_QUALITY, method=3)
         output.seek(0)
     except Exception as error:
         raise ValueError("La photo n'est pas une image valide.") from error

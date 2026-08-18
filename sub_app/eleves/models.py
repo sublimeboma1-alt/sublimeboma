@@ -186,18 +186,23 @@ class Eleve(models.Model):
     
     def generate_matricule(self):
         """Génère le matricule automatiquement: ANNÉE + E + NUMÉRO (ex: 2026E000001)"""
+        from django.db.models import Max
+
         current_year = datetime.datetime.now().year
-        last_eleve = Eleve.objects.filter(matricule__startswith=f"{current_year}E").order_by('-matricule').first()
-        
-        if last_eleve and last_eleve.matricule:
+        # aggregate(Max) est beaucoup plus rapide que order_by().first() sur de grandes tables
+        last_matricule = Eleve.objects.filter(
+            matricule__startswith=f"{current_year}E"
+        ).aggregate(max_matricule=Max('matricule'))['max_matricule']
+
+        if last_matricule:
             try:
-                last_number = int(last_eleve.matricule[-6:])
+                last_number = int(last_matricule[-6:])
                 new_number = last_number + 1
-            except:
+            except (ValueError, TypeError):
                 new_number = 1
         else:
             new_number = 1
-        
+
         return f"{current_year}E{new_number:06d}"
     
     def save(self, *args, **kwargs):

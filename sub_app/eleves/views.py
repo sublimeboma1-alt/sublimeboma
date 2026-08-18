@@ -168,10 +168,9 @@ def eleves_list_create(request):
         try:
             data = clean_eleve_payload(parse_request_data(request))
             eleve = Eleve(**data, created_by=request.user)
-            # full_clean() verifie les champs avant save(). Le matricule doit
-            # donc etre genere ici (il etait auparavant genere trop tard).
-            eleve.matricule = eleve.generate_matricule()
-            eleve.full_clean()
+            # clean_fields() est plus leger que full_clean() (pas de validate_unique)
+            # Le matricule est genere dans save() si absent.
+            eleve.clean_fields()
             eleve.save()
         except ValidationError as error:
             return validation_error_response(error)
@@ -240,7 +239,8 @@ def eleve_detail(request, eleve_id):
         data = clean_eleve_payload(parse_request_data(request), partial=True)
         for field, value in data.items():
             setattr(eleve, field, value)
-        eleve.full_clean()
+        # clean_fields() est plus leger que full_clean() (pas de validate_unique)
+        eleve.clean_fields()
         eleve.save()
     except ValidationError as error:
         return validation_error_response(error)
