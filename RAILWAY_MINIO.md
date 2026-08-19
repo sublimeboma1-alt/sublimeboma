@@ -15,7 +15,10 @@ MINIO_BUCKET=sublime-media
 MINIO_REGION=us-east-1
 ```
 
-Le bucket doit exister et autoriser la lecture publique des objets de photos. Ne mettez pas de `/` final dans `MINIO_ENDPOINT_URL`.
+Le bucket peut rester prive : Django genere des URL presignees temporaires pour
+afficher les photos. Par defaut, chaque URL reste valide 1 heure. Vous pouvez
+changer cette duree avec `MINIO_URL_EXPIRE_SECONDS` (en secondes). Ne mettez pas
+de `/` final dans `MINIO_ENDPOINT_URL`.
 
 ## Migration des photos existantes
 

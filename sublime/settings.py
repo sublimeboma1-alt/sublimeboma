@@ -167,7 +167,12 @@ if MINIO_ENABLED:
                 'region_name': os.environ.get('MINIO_REGION', 'us-east-1'),
                 'addressing_style': 'path',
                 'default_acl': None,
-                'querystring_auth': False,
+                # Les buckets prives (Tigris/MinIO) renvoient 403 avec une URL
+                # simple. django-storages utilise Boto3 pour signer chaque URL
+                # de photo, ce qui permet au navigateur de la lire sans rendre
+                # le bucket public.
+                'querystring_auth': True,
+                'querystring_expire': int(os.environ.get('MINIO_URL_EXPIRE_SECONDS', '3600')),
                 'file_overwrite': False,
             },
         },
