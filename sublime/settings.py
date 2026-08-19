@@ -146,6 +146,36 @@ STATIC_URL = '/static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Les photos des eleves restent locales en developpement. Sur Railway, activez
+# MINIO_ENABLED=true et renseignez les variables MINIO_* pour les envoyer vers
+# un bucket MinIO/S3 persistant.
+MINIO_ENABLED = os.environ.get('MINIO_ENABLED', '').lower() in {'1', 'true', 'yes'}
+if MINIO_ENABLED:
+    required_minio_variables = ('MINIO_ENDPOINT_URL', 'MINIO_ACCESS_KEY', 'MINIO_SECRET_KEY', 'MINIO_BUCKET')
+    missing_minio_variables = [name for name in required_minio_variables if not os.environ.get(name)]
+    if missing_minio_variables:
+        raise RuntimeError(f"Configuration MinIO incomplete : {', '.join(missing_minio_variables)}")
+
+    STORAGES = {
+        'default': {
+            'BACKEND': 'storages.backends.s3.S3Storage',
+            'OPTIONS': {
+                'endpoint_url': os.environ['MINIO_ENDPOINT_URL'],
+                'access_key': os.environ['MINIO_ACCESS_KEY'],
+                'secret_key': os.environ['MINIO_SECRET_KEY'],
+                'bucket_name': os.environ['MINIO_BUCKET'],
+                'region_name': os.environ.get('MINIO_REGION', 'us-east-1'),
+                'addressing_style': 'path',
+                'default_acl': None,
+                'querystring_auth': False,
+                'file_overwrite': False,
+            },
+        },
+        'staticfiles': {
+            'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+        },
+    }
+
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 import os
 
