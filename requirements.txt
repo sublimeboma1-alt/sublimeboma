@@ -1,7 +1,8 @@
 reportlab
 xlsxwriter
 pandas
-openpyxl    
+openpyxl
+dj-database-url    
 arabic-reshaper==3.0.1
 asgiref==3.11.1
 asn1crypto==1.5.1
