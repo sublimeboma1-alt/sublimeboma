@@ -212,7 +212,7 @@ function FraisScolairesPage({ initialTab }) {
 
       {selected && <div className="fees-modal-backdrop" role="presentation"><form className="fees-modal" onSubmit={recordPayment}><button type="button" className="fees-modal-close" onClick={() => setSelected(null)}>×</button><span>Nouveau paiement</span><h2>{selected.name}</h2><p>Solde restant : <strong>{formatMoney(selected.total - selected.paid)}</strong></p><label>Montant a encaisser<input autoFocus inputMode="numeric" value={amount} onChange={(event) => setAmount(event.target.value.replace(/\D/g, ''))} placeholder="Ex. 50000" /></label><div><button type="button" onClick={() => setSelected(null)}>Annuler</button><button type="submit" className="fees-primary">Valider le paiement</button></div></form></div>}
       {configModal === 'year' && <YearModal onClose={() => setConfigModal('')} onSave={async (data) => { const item = await createYear(data); setYears((rows) => [item, ...rows]); setConfigModal('') }} />}
-      {configModal === 'tariff' && <TariffModal references={references} onClose={() => setConfigModal('')} onSave={async (data) => { await createTariff(data); setTariffs(await fetchTariffs()); setConfigModal('') }} />}
+      {configModal === 'tariff' && <TariffModalWithFeedback references={references} onClose={() => setConfigModal('')} onSave={async (data) => { await createTariff(data); setTariffs(await fetchTariffs()); setConfigModal('') }} />}
       {applyTarget && <ApplyModal tariff={applyTarget} onClose={() => setApplyTarget(null)} onConfirm={async () => { const result = await applyTariff(applyTarget.id); setApplyTarget(null); alert(`${result.created} frais crees pour ${result.eligible} eleves.`); await reloadData() }} />}
     </main>
   )
@@ -268,6 +268,8 @@ function YearModal({ onClose, onSave }) {
 
 function TariffModal({ references, onClose, onSave }) {
   const [form, setForm] = useState({ classe_id: '', trimestre: '', type_frais: '', montant: '' })
+  const [error, setError] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
   const classes = useMemo(() => {
     const unique = new Map()
     for (const c of references.classes || []) {
@@ -283,6 +285,41 @@ function ApplyTariff({ tariffs, onSelect }) { return <section className="fees-pa
 
 function ApplyModal({ tariff, onClose, onConfirm }) {
   return <div className="fees-modal-backdrop"><div className="fees-modal"><button type="button" className="fees-modal-close" onClick={onClose}>×</button><span>Distribution controlee</span><h2>Appliquer ce tarif ?</h2><p><strong>{tariff.type_frais} · {tariff.trimestre}</strong></p><p>{tariff.niveau} {tariff.classe} {tariff.option}</p><p>Montant : <strong>{formatMoney(tariff.montant)}</strong> par eleve</p><div><button type="button" onClick={onClose}>Annuler</button><button className="fees-primary" onClick={onConfirm}>Confirmer</button></div></div></div>
+}
+
+function TariffModalWithFeedback({ references, onClose, onSave }) {
+  const [form, setForm] = useState({ classe_id: '', trimestre: '', type_frais: '', montant: '' })
+  const [error, setError] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
+  const classes = useMemo(() => {
+    const unique = new Map()
+    for (const item of references.classes || []) unique.set(item.id, item)
+    return [...unique.values()]
+  }, [references])
+
+  async function submit(event) {
+    event.preventDefault()
+    setError('')
+    setIsSaving(true)
+    try {
+      await onSave({ ...form, annee_scolaire_id: references.annee_active_id })
+    } catch (saveError) {
+      setError(saveError.message || 'Impossible de creer ce tarif.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return <div className="fees-modal-backdrop"><form className="fees-modal" onSubmit={submit}>
+    <button type="button" className="fees-modal-close" onClick={onClose}>×</button>
+    <span>Definition tarifaire</span><h2>Nouveau tarif</h2>
+    <label>Classe<select required className="fees-tariff-classe-select" value={form.classe_id} onChange={(event) => setForm({ ...form, classe_id: event.target.value })}><option value="">Choisir une classe</option>{classes.map((item) => <option key={item.id} value={item.id}>{item.libelle}</option>)}</select></label>
+    <label>Trimestre<select required value={form.trimestre} onChange={(event) => setForm({ ...form, trimestre: event.target.value })}><option value="">Choisir</option>{(references.trimestres || []).map((item) => <option key={item.code} value={item.code}>{item.libelle}</option>)}</select></label>
+    <label>Type de frais<select required value={form.type_frais} onChange={(event) => setForm({ ...form, type_frais: event.target.value })}><option value="">Choisir</option>{(references.types_frais || []).map((item) => <option key={item.code} value={item.code}>{item.libelle}</option>)}</select></label>
+    <label>Montant<input required inputMode="numeric" value={form.montant} onChange={(event) => setForm({ ...form, montant: event.target.value })}/></label>
+    {error && <div className="form-error">{error}</div>}
+    <div><button type="button" onClick={onClose} disabled={isSaving}>Annuler</button><button className="fees-primary" disabled={!references.annee_active_id || isSaving}>{isSaving ? 'Ajout...' : 'Ajouter'}</button></div>
+  </form></div>
 }
 
 export default FraisScolairesPage

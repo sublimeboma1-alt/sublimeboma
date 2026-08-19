@@ -429,7 +429,6 @@ def tarifs(request):
             jeton = request.finance_jeton
             constraints = {
                 'annee_scolaire_id': jeton.annee_scolaire_id,
-                'niveau': jeton.niveau_id,
                 'trimestre': jeton.trimestre_id,
                 'type_frais': jeton.type_frais_id,
             }
@@ -443,6 +442,10 @@ def tarifs(request):
                 classe = Classe.objects.select_related('section', 'classe_maternel', 'classe_primaire', 'classe_humanite').filter(id=classe_id).first()
                 if not classe:
                     return JsonResponse({'detail': 'Classe introuvable.'}, status=400)
+                if jeton.niveau_id and classe.niveau_id != jeton.niveau_id:
+                    return JsonResponse({'detail': 'Cette classe est hors du perimetre de votre jeton.'}, status=403)
+                if jeton.classe_id and classe.id != jeton.classe_id:
+                    return JsonResponse({'detail': 'La classe est imposee par votre jeton.'}, status=403)
                 item = TarifFrais.objects.create(
                     annee_scolaire_id=data['annee_scolaire_id'],
                     niveau_id=classe.niveau_id,
