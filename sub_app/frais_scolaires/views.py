@@ -248,8 +248,10 @@ def dossiers_queryset(request):
 def grouped_dossiers(request):
     frais, year = dossiers_queryset(request)
     groups = defaultdict(list)
-    # FraisScolaire n'a plus de champ eleve - on retourne les frais directement
-    return [serialize_dossier(None, [item]) for item in frais], year
+    for item in frais.select_related('eleve__classe__niveau', 'eleve__classe__section'):
+        if item.eleve_id:
+            groups[item.eleve].append(item)
+    return [serialize_dossier(eleve, eleve_frais) for eleve, eleve_frais in groups.items()], year
 
 
 def financial_filters(queryset, request, relation='eleve__', year_key=None):
@@ -370,7 +372,7 @@ def eleve_detail(request, eleve_id):
     eleve = Eleve.objects.select_related('classe', 'classe__niveau', 'classe__section', 'annee_scolaire').filter(id=eleve_id).first()
     if not eleve or (request.finance_jeton.classe_id and eleve.classe_id != request.finance_jeton.classe_id) or (request.finance_jeton.niveau_id and (not eleve.classe or eleve.classe.niveau_id != request.finance_jeton.niveau_id)):
         return JsonResponse({'detail': 'Eleve introuvable.'}, status=404)
-    frais = scope_frais(FraisScolaire.objects.select_related('trimestre', 'type_frais').prefetch_related('paiements__mode_paiement', 'paiements__agent').filter(niveau=eleve.classe.niveau if eleve.classe else None), request.finance_jeton)
+    frais = scope_frais(FraisScolaire.objects.select_related('trimestre', 'type_frais').prefetch_related('paiements__mode_paiement', 'paiements__agent').filter(eleve=eleve), request.finance_jeton)
     return JsonResponse(serialize_eleve_detail(eleve, list(frais)))
 
 
@@ -500,6 +502,6 @@ def appliquer_tarif(request):
     created = 0
     with transaction.atomic():
         for eleve in eleves:
-            _, was_created = FraisScolaire.objects.get_or_create(niveau=tariff.niveau, annee_scolaire=tariff.annee_scolaire, trimestre=tariff.trimestre, type_frais=tariff.type_frais, defaults={'montant_total': tariff.montant})
+            _, was_created = FraisScolaire.objects.get_or_create(eleve=eleve, niveau=tariff.niveau, annee_scolaire=tariff.annee_scolaire, trimestre=tariff.trimestre, type_frais=tariff.type_frais, defaults={'montant_total': tariff.montant})
             created += was_created
     return JsonResponse({'created': created, 'eligible': eleves.count()})

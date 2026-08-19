@@ -16,7 +16,7 @@ import './jeton.css'
 
 function ProtectedApp() {
   const { isAuthenticated, isLoading } = useAuth()
-  const { estActif } = useJeton()
+  const { estActif, isJetonReady } = useJeton()
   const [route, setRoute] = useState(() => window.location.hash.slice(1) || 'eleves')
 
   useEffect(() => {
@@ -37,6 +37,10 @@ function ProtectedApp() {
 
   if (!isAuthenticated) {
     return <LoginPage />
+  }
+
+  if (!isJetonReady) {
+    return <div className="boot-screen">Verification du code jeton</div>
   }
 
   const feeTabs = { paiements: 'statistics', statistiques: 'statistics', 'frais-situation': 'dossiers', 'frais-annees': 'years', 'frais-tarifs': 'tariffs', 'frais-appliquer': 'apply' }

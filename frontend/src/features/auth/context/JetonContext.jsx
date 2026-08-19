@@ -5,15 +5,18 @@ const JetonContext = createContext(null)
 
 const STORAGE_KEY = 'sublime_jeton'
 
+function readStoredJeton() {
+  try {
+    const stored = sessionStorage.getItem(STORAGE_KEY)
+    return stored ? JSON.parse(stored) : null
+  } catch {
+    return null
+  }
+}
+
 export function JetonProvider({ children }) {
-  const [jeton, setJeton] = useState(() => {
-    try {
-      const stored = sessionStorage.getItem(STORAGE_KEY)
-      return stored ? JSON.parse(stored) : null
-    } catch {
-      return null
-    }
-  })
+  const [jeton, setJeton] = useState(readStoredJeton)
+  const [isJetonReady, setIsJetonReady] = useState(() => !readStoredJeton()?.code)
   const [isVerifying, setIsVerifying] = useState(false)
   const [erreur, setErreur] = useState('')
 
@@ -24,6 +27,19 @@ export function JetonProvider({ children }) {
       sessionStorage.removeItem(STORAGE_KEY)
     }
   }, [jeton])
+
+  useEffect(() => {
+    if (!jeton?.code) return
+    let mounted = true
+    validerCodeJeton(jeton.code)
+      .then((data) => {
+        if (mounted && data.valide) setJeton(data)
+        if (mounted && !data.valide) setJeton(null)
+      })
+      .catch(() => { if (mounted) setJeton(null) })
+      .finally(() => { if (mounted) setIsJetonReady(true) })
+    return () => { mounted = false }
+  }, [])
 
   const valider = useCallback(async (code) => {
     setIsVerifying(true)
@@ -61,6 +77,7 @@ export function JetonProvider({ children }) {
     jeton,
     estActif,
     isVerifying,
+    isJetonReady,
     erreur,
     valider,
     effacer,

@@ -43,6 +43,8 @@ def scope_frais(queryset, jeton):
         queryset = queryset.filter(annee_scolaire_id=jeton.annee_scolaire_id)
     if jeton.niveau_id:
         queryset = queryset.filter(niveau_id=jeton.niveau_id)
+    if jeton.classe_id:
+        queryset = queryset.filter(eleve__classe_id=jeton.classe_id)
     if jeton.type_frais_id:
         queryset = queryset.filter(type_frais_id=jeton.type_frais_id)
     if jeton.trimestre_id:

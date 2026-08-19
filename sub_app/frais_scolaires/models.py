@@ -145,6 +145,7 @@ class FraisScolaire(models.Model):
         (3, '3ème Trimestre'),
     ]
     
+    eleve = models.ForeignKey(Eleve, on_delete=models.CASCADE, related_name='frais_inscription', blank=True, null=True, verbose_name="Élève")
     niveau = models.ForeignKey(NiveauClasse, to_field="code", on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Niveau")
     annee_scolaire = models.ForeignKey(AnneeScolaire, on_delete=models.CASCADE, related_name='frais', verbose_name="Année scolaire")
     trimestre = models.ForeignKey(Trimestre, to_field='numero', on_delete=models.PROTECT, verbose_name="Trimestre")
@@ -276,6 +277,7 @@ class CodeJeton(models.Model):
 
 class Paiement(models.Model):
     frais = models.ForeignKey(FraisScolaire, on_delete=models.CASCADE, related_name='paiements', verbose_name="Frais concerné")
+    eleve = models.ForeignKey(Eleve, on_delete=models.SET_NULL, related_name='paiements', blank=True, null=True, verbose_name="Élève")
     niveau = models.ForeignKey(NiveauClasse, to_field="code", on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Niveau")
     montant_paye = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Montant payé")
     date_paiement = models.DateField(default=timezone.now, verbose_name="Date de paiement")
