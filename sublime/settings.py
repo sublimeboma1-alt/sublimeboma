@@ -108,7 +108,7 @@ CACHES = {
 
 DATABASES = {
     'default': dj_database_url.config(
-        default=os.environ.get('DATABASE_URL'),
+        default=os.environ.get('Postgres.DATABASE_PRIVATE_URL'),
         conn_max_age=600
     )
 }
