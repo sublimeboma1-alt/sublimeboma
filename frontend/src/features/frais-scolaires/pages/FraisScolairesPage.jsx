@@ -18,6 +18,7 @@ function FraisScolairesPage({ initialTab }) {
   const [tab, setTab] = useState(initialTab)
   const [dossiers, setDossiers] = useState([])
   const [payments, setPayments] = useState([])
+  const [paymentsLoaded, setPaymentsLoaded] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [years, setYears] = useState([])
@@ -38,11 +39,10 @@ function FraisScolairesPage({ initialTab }) {
   useEffect(() => { fetchIdentity().then(setIdentity).catch(() => {}) }, [])
   useEffect(() => {
     let mounted = true
-    Promise.all([fetchFeesDashboard(), fetchPayments(), fetchYears(), fetchTariffs(), fetchFeesReferences()])
-      .then(([dashboard, paymentRows, yearRows, tariffRows, refs]) => {
+    Promise.all([fetchFeesDashboard(), fetchYears(), fetchTariffs(), fetchFeesReferences()])
+      .then(([dashboard, yearRows, tariffRows, refs]) => {
         if (mounted) {
           setDossiers(dashboard.results || [])
-          setPayments(paymentRows)
           setYears(yearRows); setTariffs(tariffRows); setReferences(refs)
         }
       })
@@ -50,6 +50,13 @@ function FraisScolairesPage({ initialTab }) {
       .finally(() => mounted && setIsLoading(false))
     return () => { mounted = false }
   }, [])
+
+  useEffect(() => {
+    if (tab !== 'overview' || paymentsLoaded) return
+    fetchPayments()
+      .then((rows) => { setPayments(rows); setPaymentsLoaded(true) })
+      .catch((error) => setLoadError(error.message || 'Impossible de charger les paiements.'))
+  }, [tab, paymentsLoaded])
 
   useEffect(() => {
     if (tab !== 'statistics') return
@@ -90,6 +97,7 @@ function FraisScolairesPage({ initialTab }) {
       const [dashboard, paymentRows, tariffRows] = await Promise.all([fetchFeesDashboard(), fetchPayments(), fetchTariffs()])
       setDossiers(dashboard.results || [])
       setPayments(paymentRows)
+      setPaymentsLoaded(true)
       setTariffs(tariffRows)
     } catch (error) {
       setLoadError(error.message || 'Impossible de rafraichir les donnees.')

@@ -1,0 +1,26 @@
+MEMO - IMPORT DU BACKUP MYSQL VERS POSTGRESQL
+===============================================
+
+Le fichier de backup utilise est : sublime/backup_mysql.sql
+
+1. Se placer dans le dossier du projet :
+   cd /app
+
+2. Vérifier que l'URL PostgreSQL est active :
+   echo $DATABASE_PUBLIC_URL
+
+3. Créer ou mettre à jour les tables PostgreSQL :
+   python manage.py migrate
+
+4. Vérifier le backup sans copier de données :
+   python tools/import_mysql_dump_to_postgres.py --dry-run
+
+5. Importer les vraies données :
+   python tools/import_mysql_dump_to_postgres.py --allow-nonempty
+
+IMPORTANT
+---------
+- L'import ne doit être lancé qu'une fois pour le même backup.
+- --allow-nonempty est nécessaire car Django crée déjà les permissions.
+- Ne jamais supprimer ni partager DATABASE_PUBLIC_URL : elle contient l'accès privé à la base.
+- En cas d'erreur, relancer d'abord la commande --dry-run.
