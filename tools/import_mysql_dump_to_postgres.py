@@ -144,9 +144,16 @@ def main() -> int:
         return 2
 
     target_columns: dict[str, list[str]] = {}
+    boolean_columns: dict[str, set[str]] = {}
     with connection.cursor() as cursor:
         for table, _ in imports:
             target_columns[table] = [column.name for column in connection.introspection.get_table_description(cursor, table)]
+            cursor.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema = current_schema() AND table_name = %s AND data_type = 'boolean'",
+                [table],
+            )
+            boolean_columns[table] = {column_name for (column_name,) in cursor.fetchall()}
 
     column_mappings: dict[str, list[tuple[int, str]]] = {}
     ignored_columns: dict[str, list[str]] = {}
@@ -202,7 +209,13 @@ def main() -> int:
             quoted_columns = ", ".join(connection.ops.quote_name(column) for column in columns)
             placeholders = ", ".join(["%s"] * len(columns))
             query = f"INSERT INTO {quoted_table} ({quoted_columns}) VALUES ({placeholders}) ON CONFLICT DO NOTHING"
-            rows = ([row[index] for index, _ in mappings] for row in parse_values(values))
+            rows = (
+                [
+                    bool(row[index]) if column in boolean_columns[table] and row[index] in {0, 1, "0", "1"} else row[index]
+                    for index, column in mappings
+                ]
+                for row in parse_values(values)
+            )
             cursor.executemany(query, rows)
 
         for table in row_counts:

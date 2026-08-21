@@ -17,7 +17,7 @@ Ce dossier contient un outil independant : il ne modifie pas les fichiers de l'a
    python tools/import_mysql_dump_to_postgres.py
    ```
 
-Le script execute tout l'import dans une transaction : en cas d'erreur, aucune donnee n'est validee. Il refuse aussi une table deja remplie, sauf avec `--allow-nonempty`. Il reconnait egalement les anciennes colonnes devenues des references Django, par exemple `sexe` vers `sexe_id`.
+Le script execute tout l'import dans une transaction : en cas d'erreur, aucune donnee n'est validee. Il refuse aussi une table deja remplie, sauf avec `--allow-nonempty`. Il reconnait egalement les anciennes colonnes devenues des references Django, par exemple `sexe` vers `sexe_id`, et convertit les booleens MySQL (`0` et `1`) au format PostgreSQL.
 
 Il ne copie pas `depense_categoriedepense`, `django_migrations` ni les sessions temporaires `django_session`.
 Les deux dernieres tables doivent rester gerees par Django ; la table des categories de depenses est exclue a votre demande.
