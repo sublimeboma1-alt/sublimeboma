@@ -18,7 +18,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DUMP = ROOT / "sublime" / "backup_mysql.sql"
-SKIPPED_TABLES = {"django_migrations", "django_session"}
+SKIPPED_TABLES = {
+    "depense_categoriedepense",
+    "django_migrations",
+    "django_session",
+}
 
 
 def parse_arguments() -> argparse.Namespace:

@@ -19,4 +19,5 @@ Ce dossier contient un outil independant : il ne modifie pas les fichiers de l'a
 
 Le script execute tout l'import dans une transaction : en cas d'erreur, aucune donnee n'est validee. Il refuse aussi une table deja remplie, sauf avec `--allow-nonempty`.
 
-Il ne copie pas `django_migrations` ni les sessions temporaires `django_session` ; ces deux tables ne contiennent pas les donnees metier et doivent rester gerees par Django.
+Il ne copie pas `depense_categoriedepense`, `django_migrations` ni les sessions temporaires `django_session`.
+Les deux dernieres tables doivent rester gerees par Django ; la table des categories de depenses est exclue a votre demande.
