@@ -54,7 +54,7 @@ function ProtectedApp() {
   if (route === 'repartition') return <RepartitionPage mode="dashboard" />
   if (route.startsWith('frais-situation/')) {
     const eleveId = Number(route.split('/')[1] || 0)
-    return <EleveFraisDetailPage eleveId={eleveId} onBack={() => { window.location.hash = 'frais-situation' }} />
+    return <EleveFraisDetailPage eleveId={eleveId} onBack={() => window.history.back()} />
   }
   if (route.startsWith('frais') || route === 'paiements' || route === 'statistiques') return <FraisScolairesPage initialTab={feeTabs[route] || 'overview'} />
   return <ElevesPage openCreate={route === 'eleves/nouveau'} />

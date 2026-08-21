@@ -372,7 +372,12 @@ def eleve_detail(request, eleve_id):
     eleve = Eleve.objects.select_related('classe', 'classe__niveau', 'classe__section', 'annee_scolaire').filter(id=eleve_id).first()
     if not eleve or (request.finance_jeton.classe_id and eleve.classe_id != request.finance_jeton.classe_id) or (request.finance_jeton.niveau_id and (not eleve.classe or eleve.classe.niveau_id != request.finance_jeton.niveau_id)):
         return JsonResponse({'detail': 'Eleve introuvable.'}, status=404)
-    frais = scope_frais(FraisScolaire.objects.select_related('trimestre', 'type_frais').prefetch_related('paiements__mode_paiement', 'paiements__agent').filter(eleve=eleve), request.finance_jeton)
+    frais = scope_frais(
+        FraisScolaire.objects.select_related('trimestre', 'type_frais').prefetch_related(
+            Prefetch('paiements', queryset=Paiement.objects.select_related('eleve', 'mode_paiement', 'agent'))
+        ).filter(eleve=eleve),
+        request.finance_jeton,
+    )
     return JsonResponse(serialize_eleve_detail(eleve, list(frais)))
 
 

@@ -5,6 +5,7 @@ import { useAuth } from '../../auth/context/authState'
 import { applyTariff, createPayment, createTariff, createYear, fetchFeesDashboard, fetchFeesReferences, fetchFeesStatistics, fetchPayments, fetchTariffs, fetchYears } from '../services/fraisService'
 
 const formatMoney = (amount) => new Intl.NumberFormat('fr-FR').format(amount) + ' FC'
+let feesPageCache = null
 
 function statusFor(dossier) {
   if (dossier.paid >= dossier.total) return ['Paye', 'paid']
@@ -14,16 +15,17 @@ function statusFor(dossier) {
 
 function FraisScolairesPage({ initialTab }) {
   const { user, signOut } = useAuth()
+  const cachedFees = feesPageCache?.username === user?.username ? feesPageCache : null
   const [identity, setIdentity] = useState(defaultIdentity)
   const [tab, setTab] = useState(initialTab)
-  const [dossiers, setDossiers] = useState([])
-  const [payments, setPayments] = useState([])
-  const [paymentsLoaded, setPaymentsLoaded] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
+  const [dossiers, setDossiers] = useState(() => cachedFees?.dossiers || [])
+  const [payments, setPayments] = useState(() => cachedFees?.payments || [])
+  const [paymentsLoaded, setPaymentsLoaded] = useState(() => cachedFees?.paymentsLoaded || false)
+  const [isLoading, setIsLoading] = useState(() => !cachedFees)
   const [loadError, setLoadError] = useState('')
-  const [years, setYears] = useState([])
-  const [tariffs, setTariffs] = useState([])
-  const [references, setReferences] = useState({})
+  const [years, setYears] = useState(() => cachedFees?.years || [])
+  const [tariffs, setTariffs] = useState(() => cachedFees?.tariffs || [])
+  const [references, setReferences] = useState(() => cachedFees?.references || {})
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('all')
   const [niveau, setNiveau] = useState('')
@@ -38,23 +40,36 @@ function FraisScolairesPage({ initialTab }) {
   useEffect(() => { setTab(initialTab) }, [initialTab])
   useEffect(() => { fetchIdentity().then(setIdentity).catch(() => {}) }, [])
   useEffect(() => {
+    if (cachedFees) return undefined
     let mounted = true
-    Promise.all([fetchFeesDashboard(), fetchYears(), fetchTariffs(), fetchFeesReferences()])
-      .then(([dashboard, yearRows, tariffRows, refs]) => {
+    fetchFeesDashboard()
+      .then((dashboard) => {
         if (mounted) {
-          setDossiers(dashboard.results || [])
-          setYears(yearRows); setTariffs(tariffRows); setReferences(refs)
+          const nextDossiers = dashboard.results || []
+          setDossiers(nextDossiers)
+          feesPageCache = { username: user?.username, dossiers: nextDossiers, payments: [], paymentsLoaded: false, years: [], tariffs: [], references: {} }
         }
       })
       .catch((error) => mounted && setLoadError(error.message || 'Impossible de charger les frais scolaires.'))
       .finally(() => mounted && setIsLoading(false))
+    Promise.all([fetchYears(), fetchTariffs(), fetchFeesReferences()])
+      .then(([yearRows, tariffRows, refs]) => {
+        if (mounted) {
+          setYears(yearRows); setTariffs(tariffRows); setReferences(refs)
+          if (feesPageCache) feesPageCache = { ...feesPageCache, years: yearRows, tariffs: tariffRows, references: refs }
+        }
+      })
+      .catch((error) => mounted && setLoadError(error.message || 'Impossible de charger les configurations.'))
     return () => { mounted = false }
-  }, [])
+  }, [cachedFees, user?.username])
 
   useEffect(() => {
     if (tab !== 'overview' || paymentsLoaded) return
     fetchPayments()
-      .then((rows) => { setPayments(rows); setPaymentsLoaded(true) })
+      .then((rows) => {
+        setPayments(rows); setPaymentsLoaded(true)
+        if (feesPageCache) feesPageCache = { ...feesPageCache, payments: rows, paymentsLoaded: true }
+      })
       .catch((error) => setLoadError(error.message || 'Impossible de charger les paiements.'))
   }, [tab, paymentsLoaded])
 
@@ -99,6 +114,7 @@ function FraisScolairesPage({ initialTab }) {
       setPayments(paymentRows)
       setPaymentsLoaded(true)
       setTariffs(tariffRows)
+      if (feesPageCache) feesPageCache = { ...feesPageCache, dossiers: dashboard.results || [], payments: paymentRows, paymentsLoaded: true, tariffs: tariffRows }
     } catch (error) {
       setLoadError(error.message || 'Impossible de rafraichir les donnees.')
     }
