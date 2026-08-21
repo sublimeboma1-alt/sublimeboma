@@ -148,16 +148,25 @@ def main() -> int:
         for table, _ in imports:
             target_columns[table] = [column.name for column in connection.introspection.get_table_description(cursor, table)]
 
-    incompatible = {
-        table: sorted(set(columns_by_table[table]) - set(target_columns[table]))
-        for table, _ in imports
-        if set(columns_by_table[table]) - set(target_columns[table])
-    }
-    if incompatible:
-        print("Le schema PostgreSQL ne correspond pas au backup :", file=sys.stderr)
-        for table, columns in incompatible.items():
-            print(f"- {table} : colonnes absentes ({', '.join(columns)})", file=sys.stderr)
-        return 2
+    column_mappings: dict[str, list[tuple[int, str]]] = {}
+    ignored_columns: dict[str, list[str]] = {}
+    for table, _ in imports:
+        mappings: list[tuple[int, str]] = []
+        ignored: list[str] = []
+        target_set = set(target_columns[table])
+        for index, source_column in enumerate(columns_by_table[table]):
+            if source_column in target_set:
+                mappings.append((index, source_column))
+            elif f"{source_column}_id" in target_set:
+                mappings.append((index, f"{source_column}_id"))
+            else:
+                ignored.append(source_column)
+        if not mappings:
+            print(f"Aucune colonne compatible pour {table}.", file=sys.stderr)
+            return 2
+        column_mappings[table] = mappings
+        if ignored:
+            ignored_columns[table] = ignored
 
     row_counts: dict[str, int] = {}
     for table, values in imports:
@@ -171,6 +180,10 @@ def main() -> int:
         print("Verification terminee :")
         for table, count in row_counts.items():
             print(f"- {table}: {count} ligne(s)")
+        if ignored_columns:
+            print("Colonnes ignorees (absentes de PostgreSQL) :")
+            for table, columns in ignored_columns.items():
+                print(f"- {table}: {', '.join(columns)}")
         print("Aucune donnee n'a ete ecrite.")
         return 0
 
@@ -183,12 +196,14 @@ def main() -> int:
                 return 2
 
         for table, values in imports:
-            columns = columns_by_table[table]
+            mappings = column_mappings[table]
+            columns = [column for _, column in mappings]
             quoted_table = connection.ops.quote_name(table)
             quoted_columns = ", ".join(connection.ops.quote_name(column) for column in columns)
             placeholders = ", ".join(["%s"] * len(columns))
             query = f"INSERT INTO {quoted_table} ({quoted_columns}) VALUES ({placeholders}) ON CONFLICT DO NOTHING"
-            cursor.executemany(query, parse_values(values))
+            rows = ([row[index] for index, _ in mappings] for row in parse_values(values))
+            cursor.executemany(query, rows)
 
         for table in row_counts:
             if "id" in target_columns[table]:
