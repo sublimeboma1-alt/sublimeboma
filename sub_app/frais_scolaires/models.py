@@ -312,7 +312,9 @@ class Paiement(models.Model):
         return f"REC-{annee}-{nouveau_num:06d}"
     
     def __str__(self):
-        return f"{self.reference} - {self.eleve.nom} {self.eleve.prenom} - {self.montant_paye} FC"
+        eleve = self.eleve
+        nom_eleve = f"{eleve.nom} {eleve.prenom}" if eleve else "Élève supprimé"
+        return f"{self.reference} - {nom_eleve} - {self.montant_paye} FC"
     
     class Meta:
         verbose_name = "Paiement"
