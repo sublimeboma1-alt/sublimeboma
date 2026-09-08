@@ -374,7 +374,7 @@ def eleve_detail(request, eleve_id):
         return JsonResponse({'detail': 'Eleve introuvable.'}, status=404)
     frais = scope_frais(
         FraisScolaire.objects.select_related('trimestre', 'type_frais').prefetch_related(
-            Prefetch('paiements', queryset=Paiement.objects.select_related('eleve', 'mode_paiement', 'agent'))
+            Prefetch('paiements', queryset=Paiement.objects.select_related('eleve', 'frais__eleve', 'mode_paiement', 'agent'))
         ).filter(eleve=eleve),
         request.finance_jeton,
     )
