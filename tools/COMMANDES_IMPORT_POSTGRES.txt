@@ -18,6 +18,10 @@ Le fichier de backup utilise est : sublime/backup_mysql.sql
 5. Importer les vraies données :
    python tools/import_mysql_dump_to_postgres.py --allow-nonempty
 
+6. Apres un import deja effectue, relier les eleves a leurs annees scolaires :
+   python tools/relink_eleves_to_annees.py --dry-run
+   python tools/relink_eleves_to_annees.py
+
 IMPORTANT
 ---------
 - L'import ne doit être lancé qu'une fois pour le même backup.

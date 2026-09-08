@@ -28,9 +28,9 @@ SECRET_KEY = 'django-insecure-q-)s-tz%r!)z_=@oz5f9k*+&p)^z*sf#uohj8x3_95s%p_iqyh
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['sublimeboma-production.up.railway.app', '127.0.0.1', 'localhost']
+ALLOWED_HOSTS = ['sublimeboma.pythonanywhere.com', '127.0.0.1', 'localhost']
 CSRF_TRUSTED_ORIGINS = [
-    'https://sublimeboma-production.up.railway.app',
+    'https://sublimeboma.pythonanywhere.com',
     'http://127.0.0.1:5173',
     'http://localhost:5173',
     'http://127.0.0.1:5174',
@@ -97,10 +97,17 @@ CACHES = {
 
 
 DATABASES = {
-    'default': dj_database_url.config(
-        default=os.environ.get('DATABASE_PUBLIC_URL'),
-        conn_max_age=600
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'maspboma$sublimeboma',
+        'USER': 'maspboma',
+        'PASSWORD': 'jos123@#',
+        'HOST': 'maspboma.mysql.pythonanywhere-services.com',
+        'PORT': '3306',
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+        },
+    }
 }
 
 
@@ -145,41 +152,6 @@ STATIC_URL = '/static/'
 # Configuration des médias (pour les photos)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
-
-# Les photos des eleves restent locales en developpement. Sur Railway, activez
-# MINIO_ENABLED=true et renseignez les variables MINIO_* pour les envoyer vers
-# un bucket MinIO/S3 persistant.
-MINIO_ENABLED = os.environ.get('MINIO_ENABLED', '').lower() in {'1', 'true', 'yes'}
-if MINIO_ENABLED:
-    required_minio_variables = ('MINIO_ENDPOINT_URL', 'MINIO_ACCESS_KEY', 'MINIO_SECRET_KEY', 'MINIO_BUCKET')
-    missing_minio_variables = [name for name in required_minio_variables if not os.environ.get(name)]
-    if missing_minio_variables:
-        raise RuntimeError(f"Configuration MinIO incomplete : {', '.join(missing_minio_variables)}")
-
-    STORAGES = {
-        'default': {
-            'BACKEND': 'storages.backends.s3.S3Storage',
-            'OPTIONS': {
-                'endpoint_url': os.environ['MINIO_ENDPOINT_URL'],
-                'access_key': os.environ['MINIO_ACCESS_KEY'],
-                'secret_key': os.environ['MINIO_SECRET_KEY'],
-                'bucket_name': os.environ['MINIO_BUCKET'],
-                'region_name': os.environ.get('MINIO_REGION', 'us-east-1'),
-                'addressing_style': 'path',
-                'default_acl': None,
-                # Les buckets prives (Tigris/MinIO) renvoient 403 avec une URL
-                # simple. django-storages utilise Boto3 pour signer chaque URL
-                # de photo, ce qui permet au navigateur de la lire sans rendre
-                # le bucket public.
-                'querystring_auth': True,
-                'querystring_expire': int(os.environ.get('MINIO_URL_EXPIRE_SECONDS', '3600')),
-                'file_overwrite': False,
-            },
-        },
-        'staticfiles': {
-            'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
-        },
-    }
 
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 import os

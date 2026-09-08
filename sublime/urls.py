@@ -29,9 +29,8 @@ urlpatterns = [
     path('depense/', include('sub_app.depense.urls')),  
     path('repartition/', include('sub_app.repartition.urls')),
 ]
-# Servir les fichiers médias en développement
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Servir les fichiers téléversés depuis le dossier local media/.
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 
 # Personnalisation de l'admin site
