@@ -6,13 +6,13 @@ from .models import AnneeScolaire, FraisScolaire, ModePaiement, Paiement
 
 
 def serialize_paiement(paiement):
-    eleve = paiement.eleve
+    eleve = paiement.eleve or paiement.frais.eleve
     return {
         'id': paiement.id,
         'reference': paiement.reference,
         'frais_id': paiement.frais_id,
-        'eleve_id': paiement.eleve_id,
-        'name': f'{eleve.nom} {eleve.post_nom} {eleve.prenom}'.strip() if eleve else 'Élève supprimé',
+        'eleve_id': eleve.id if eleve else None,
+        'name': f'{eleve.nom} {eleve.post_nom} {eleve.prenom}'.strip() if eleve else '',
         'amount': float(paiement.montant_paye),
         'date': paiement.date_paiement.isoformat(),
         'method': str(paiement.mode_paiement),
