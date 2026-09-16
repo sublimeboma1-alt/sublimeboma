@@ -111,6 +111,7 @@ function FraisScolairesPage({ initialTab }) {
     paid: acc.paid + item.paid,
   }), { expected: 0, paid: 0 }), [dossiers])
   const recovery = totals.expected ? Math.round((totals.paid / totals.expected) * 100) : 0
+  const activeYear = (references.annees_scolaires || []).find((item) => item.id === references.annee_active_id)?.annee || ''
 
   const filtered = dossiers.filter((item) => {
     const [label, key] = statusFor(item)
@@ -189,7 +190,7 @@ function FraisScolairesPage({ initialTab }) {
       <section className="workspace fees-workspace">
         <header className="fees-header">
           <div>
-            <p>Gestion financiere · Annee scolaire 2026-2027</p>
+            <p>Gestion financiere{activeYear ? ` · Annee scolaire ${activeYear}` : ''}</p>
             <h1>Frais scolaires</h1>
             <span>Suivez les encaissements, les soldes et les dossiers de vos eleves.</span>
           </div>
