@@ -128,6 +128,18 @@ function FraisScolairesPage({ initialTab }) {
     }
   }
 
+  async function openTariffModal() {
+    try {
+      const refs = await fetchFeesReferences()
+      setReferences(refs)
+      if (feesPageCache) feesPageCache = { ...feesPageCache, references: refs }
+    } catch (error) {
+      setLoadError(error.message || 'Impossible de charger les classes.')
+      return
+    }
+    setConfigModal('tariff')
+  }
+
   async function recordPayment(event) {
     event.preventDefault()
     const paidAmount = Number(amount)
@@ -238,7 +250,7 @@ function FraisScolairesPage({ initialTab }) {
 
         {!isLoading && tab === 'statistics' && <StatisticsPanel statistics={statistics} filters={statisticsFilters} setFilters={setStatisticsFilters} references={references} />}
         {!isLoading && tab === 'years' && <YearManager years={years} onOpen={() => setConfigModal('year')} />}
-        {!isLoading && tab === 'tariffs' && <TariffManager references={references} tariffs={tariffs} onOpen={() => setConfigModal('tariff')} />}
+        {!isLoading && tab === 'tariffs' && <TariffManager references={references} tariffs={tariffs} onOpen={openTariffModal} />}
         {!isLoading && tab === 'apply' && <ApplyTariff tariffs={tariffs} onSelect={setApplyTarget} />}
       </section>
 

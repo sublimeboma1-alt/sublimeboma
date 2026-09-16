@@ -321,16 +321,14 @@ def references(request):
             'section': str(item.section) if item.section else '',
         })
     jeton = request.finance_jeton
-    annees = AnneeScolaire.objects.all()
+    annees = AnneeScolaire.objects.filter(est_active=True)
     niveaux = NiveauClasse.objects.filter(est_actif=True)
     types = TypeFrais.objects.filter(est_actif=True)
     trimestres = Trimestre.objects.filter(est_actif=True)
-    if jeton.annee_scolaire_id: annees = annees.filter(id=jeton.annee_scolaire_id)
     if jeton.niveau_id: niveaux = niveaux.filter(code=jeton.niveau_id); classes = [item for item in classes if item['niveau'] == jeton.niveau_id]
     if jeton.classe_id: classes = [item for item in classes if item['id'] == jeton.classe_id]
     if jeton.type_frais_id: types = types.filter(code=jeton.type_frais_id)
     if jeton.trimestre_id: trimestres = trimestres.filter(numero=jeton.trimestre_id)
-    active = jeton.annee_scolaire if jeton.annee_scolaire_id else active
     return JsonResponse({'annees_scolaires': [{'id': item.id, 'annee': item.annee, 'est_active': item.est_active} for item in annees], 'annee_active_id': active.id if active else None, 'modes_paiement': [{'code': item.code, 'libelle': item.libelle} for item in ModePaiement.objects.filter(est_actif=True)], 'niveaux': [{'code': item.code, 'libelle': item.libelle} for item in niveaux], 'types_frais': [{'code': item.code, 'libelle': item.libelle} for item in types], 'trimestres': [{'code': item.numero, 'libelle': item.libelle} for item in trimestres], 'classes': classes})
 
 
