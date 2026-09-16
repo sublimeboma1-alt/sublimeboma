@@ -3,7 +3,6 @@ import AppNavbar from '../../../components/AppNavbar'
 import { defaultIdentity, fetchIdentity } from '../../../services/identityService'
 import { useAuth } from '../../auth/context/authState'
 import { useJeton } from '../../auth/context/JetonContext'
-import { fetchClasses } from '../../eleves/services/elevesService'
 import { applyTariff, createPayment, createTariff, createYear, fetchFeesDashboard, fetchFeesReferences, fetchFeesStatistics, fetchPayments, fetchTariffs, fetchYears } from '../services/fraisService'
 
 const formatMoney = (amount) => new Intl.NumberFormat('fr-FR').format(amount) + ' FC'
@@ -61,14 +60,20 @@ function FraisScolairesPage({ initialTab }) {
       })
       .catch((error) => mounted && setLoadError(error.message || 'Impossible de charger les frais scolaires.'))
       .finally(() => mounted && setIsLoading(false))
-    Promise.all([fetchYears(), fetchTariffs(), fetchFeesReferences()])
-      .then(([yearRows, tariffRows, refs]) => {
+    Promise.allSettled([fetchYears(), fetchTariffs(), fetchFeesReferences()])
+      .then(([yearsResult, tariffsResult, referencesResult]) => {
         if (mounted) {
-          setYears(yearRows); setTariffs(tariffRows); setReferences(refs)
+          const yearRows = yearsResult.status === 'fulfilled' ? yearsResult.value : []
+          const tariffRows = tariffsResult.status === 'fulfilled' ? tariffsResult.value : []
+          const refs = referencesResult.status === 'fulfilled' ? referencesResult.value : {}
+          setYears(yearRows)
+          setTariffs(tariffRows)
+          setReferences(refs)
           if (feesPageCache) feesPageCache = { ...feesPageCache, years: yearRows, tariffs: tariffRows, references: refs }
+          const failed = [yearsResult, tariffsResult, referencesResult].find((result) => result.status === 'rejected')
+          if (failed) setLoadError(failed.reason?.message || 'Impossible de charger toutes les configurations.')
         }
       })
-      .catch((error) => mounted && setLoadError(error.message || 'Impossible de charger les configurations.'))
     return () => { mounted = false }
   }, [cachedFees, jetonCode, user?.username])
 
@@ -131,18 +136,7 @@ function FraisScolairesPage({ initialTab }) {
 
   async function openTariffModal() {
     try {
-      const [financeReferences, elevesClasses] = await Promise.all([fetchFeesReferences(), fetchClasses()])
-      const classes = elevesClasses
-        .map((item) => ({
-          id: item.id,
-          libelle: item.nom,
-          niveau: item.niveau_code,
-          classe: item.classe_maternel?.libelle || item.classe_primaire?.libelle || item.classe_humanite?.libelle || '',
-          section: item.section?.libelle || '',
-        }))
-        .filter((item) => !jeton?.niveau_code || item.niveau === jeton.niveau_code)
-        .filter((item) => !jeton?.classe_id || item.id === jeton.classe_id)
-      const refs = { ...financeReferences, classes }
+      const refs = await fetchFeesReferences()
       setReferences(refs)
       if (feesPageCache) feesPageCache = { ...feesPageCache, references: refs }
     } catch (error) {
