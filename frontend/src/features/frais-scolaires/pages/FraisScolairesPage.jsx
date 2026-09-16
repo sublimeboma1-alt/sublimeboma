@@ -3,6 +3,7 @@ import AppNavbar from '../../../components/AppNavbar'
 import { defaultIdentity, fetchIdentity } from '../../../services/identityService'
 import { useAuth } from '../../auth/context/authState'
 import { useJeton } from '../../auth/context/JetonContext'
+import { fetchClasses } from '../../eleves/services/elevesService'
 import { applyTariff, createPayment, createTariff, createYear, fetchFeesDashboard, fetchFeesReferences, fetchFeesStatistics, fetchPayments, fetchTariffs, fetchYears } from '../services/fraisService'
 
 const formatMoney = (amount) => new Intl.NumberFormat('fr-FR').format(amount) + ' FC'
@@ -130,7 +131,18 @@ function FraisScolairesPage({ initialTab }) {
 
   async function openTariffModal() {
     try {
-      const refs = await fetchFeesReferences()
+      const [financeReferences, elevesClasses] = await Promise.all([fetchFeesReferences(), fetchClasses()])
+      const classes = elevesClasses
+        .map((item) => ({
+          id: item.id,
+          libelle: item.nom,
+          niveau: item.niveau_code,
+          classe: item.classe_maternel?.libelle || item.classe_primaire?.libelle || item.classe_humanite?.libelle || '',
+          section: item.section?.libelle || '',
+        }))
+        .filter((item) => !jeton?.niveau_code || item.niveau === jeton.niveau_code)
+        .filter((item) => !jeton?.classe_id || item.id === jeton.classe_id)
+      const refs = { ...financeReferences, classes }
       setReferences(refs)
       if (feesPageCache) feesPageCache = { ...feesPageCache, references: refs }
     } catch (error) {
