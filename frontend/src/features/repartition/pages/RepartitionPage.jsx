@@ -49,14 +49,15 @@ function RepartitionPage({ mode = 'dashboard' }) {
   }
   async function saveSettings() {
     setNotice(''); setError('')
-    if (Math.round(total * 100) !== 10000) { setError('Le total doit etre exactement egal a 100 %.'); return }
+    if (Math.round(total * 100) !== 10000) { setError('Le total doit etre exactement egal a 100 %.'); return false }
     setSaving(true)
     try {
-      if (!parameterName.trim()) { setError('Donnez un nom au parametre.'); return }
+      if (!parameterName.trim()) { setError('Donnez un nom au parametre.'); return false }
       const result = await saveRepartitionSettings({ nom: parameterName.trim(), type_frais: selectedType, allocations: allocations.map((item) => ({ categorie_id: item.categorie_id, pourcentage: item.pourcentage })) })
       setNotice(`${result.paiements_repartis || 0} paiement(s) de l'annee scolaire active ont ete repartis.`)
       await load()
-    } catch (requestError) { setError(requestError.message || 'Enregistrement impossible.') } finally { setSaving(false) }
+      return true
+    } catch (requestError) { setError(requestError.message || 'Enregistrement impossible.'); return false } finally { setSaving(false) }
   }
   function navigate(action) {
     if (action === 'fees.situation') window.location.hash = 'frais-situation'
@@ -102,9 +103,9 @@ function RepartitionPage({ mode = 'dashboard' }) {
             <div className="parameter-list">{settings.parametres?.map((parameter) => <button type="button" key={parameter.id} onClick={() => selectParameter(parameter)}><span><b>{parameter.nom}</b><small>{parameter.type_frais_libelle}</small></span><em className={parameter.est_actif ? 'parameter-active' : ''}>{parameter.est_actif ? 'Actif' : 'Archive'}</em></button>)}</div>
             {isCreateModalOpen && <div className="parameter-modal-backdrop"><div className="parameter-modal"><div className="repartition-card-head"><div><span>Nouveau parametre</span><h2>Cle de repartition</h2></div><button className="modal-close" type="button" onClick={() => setIsCreateModalOpen(false)}>×</button></div><label className="repartition-select">Nom du parametre<input value={parameterName} placeholder="Ex. Repartition frais d'inscription 2026" onChange={(event) => setParameterName(event.target.value)} /></label>
             <label className="repartition-select">Type de frais<select value={selectedType} onChange={(event) => changeType(event.target.value)}>{settings.types_frais.map((type) => <option key={type.code} value={type.code}>{type.libelle}</option>)}</select></label>
-            <div className="allocation-list">{allocations.map((item) => <div className="allocation-row" key={item.categorie_id}><i style={{ background: item.couleur }} /><label>{item.libelle}<input aria-label={`Pourcentage ${item.libelle}`} type="number" min="0" max="100" step="0.01" value={item.pourcentage} onChange={(event) => changePercent(item.categorie_id, event.target.value)} /></label><b>%</b></div>)}</div>
+            <div className="allocation-list">{allocations.length ? allocations.map((item) => <div className="allocation-row" key={item.categorie_id}><i style={{ background: item.couleur }} /><label>{item.libelle}<input aria-label={`Pourcentage ${item.libelle}`} type="number" min="0" max="100" step="0.01" value={item.pourcentage} onChange={(event) => changePercent(item.categorie_id, event.target.value)} /></label><b>%</b></div>) : <p className="settings-help">Aucune categorie de repartition active. Ajoutez d'abord les categories dans l'administration pour definir leurs pourcentages.</p>}</div>
             <p className="settings-help">A l'enregistrement, la cle est appliquee a tous les paiements deja enregistres pour ce type de frais dans l'annee scolaire active, puis aux nouveaux encaissements.</p>
-            <button className="save-repartition" type="button" disabled={saving} onClick={async () => { await saveSettings(); setIsCreateModalOpen(false) }}>{saving ? 'Enregistrement...' : 'Enregistrer le parametre'}</button></div></div>}
+            <button className="save-repartition" type="button" disabled={saving || !allocations.length} onClick={async () => { if (await saveSettings()) { setIsCreateModalOpen(false); window.location.hash = 'repartition' } }}>{saving ? 'Enregistrement...' : 'Enregistrer et voir la repartition'}</button></div></div>}
           </article>
           <article className="repartition-card summary-card"><div className="repartition-card-head"><div><span>Vue consolidee</span><h2>Repartition encaissee</h2></div></div>
             <div className="category-summary">{dashboard.by_category.map((item) => <article className="category-cell" key={item.id} style={{ '--category-color': item.couleur }}><div className="category-cell-top"><i /><span>{item.libelle}</span></div><strong>{money(item.amount)}</strong><div className="progress"><em style={{ width: `${item.percent}%` }} /></div><small>{item.percent} % du total reparti</small></article>)}</div>

@@ -353,21 +353,23 @@ function ApplyModal({ tariff, onClose, onConfirm }) {
 }
 
 function TariffModalWithFeedback({ references, onClose, onSave }) {
-  const [form, setForm] = useState({ classe_id: '', trimestre: '', type_frais: '', montant: '' })
+  const [form, setForm] = useState({ niveau: '', classe_id: '', trimestre: '', type_frais: '', montant: '' })
   const [error, setError] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const classes = useMemo(() => {
     const unique = new Map()
-    for (const item of references.classes || []) unique.set(item.id, item)
+    for (const item of references.classes || []) {
+      if (!form.niveau || item.niveau === form.niveau) unique.set(item.id, item)
+    }
     return [...unique.values()]
-  }, [references])
+  }, [references, form.niveau])
 
   async function submit(event) {
     event.preventDefault()
     setError('')
     setIsSaving(true)
     try {
-      await onSave({ ...form, annee_scolaire_id: references.annee_active_id })
+      await onSave({ ...form, toutes_classes: form.classe_id === '__toutes__', classe_id: form.classe_id === '__toutes__' ? '' : form.classe_id, annee_scolaire_id: references.annee_active_id })
     } catch (saveError) {
       setError(saveError.message || 'Impossible de creer ce tarif.')
     } finally {
@@ -378,7 +380,8 @@ function TariffModalWithFeedback({ references, onClose, onSave }) {
   return <div className="fees-modal-backdrop"><form className="fees-modal" onSubmit={submit}>
     <button type="button" className="fees-modal-close" onClick={onClose}>×</button>
     <span>Definition tarifaire</span><h2>Nouveau tarif</h2>
-    <label>Classe<select required className="fees-tariff-classe-select" value={form.classe_id} onChange={(event) => setForm({ ...form, classe_id: event.target.value })}><option value="">Choisir une classe</option>{classes.map((item) => <option key={item.id} value={item.id}>{item.libelle}</option>)}</select></label>
+    <label>Niveau<select required value={form.niveau} onChange={(event) => setForm({ ...form, niveau: event.target.value, classe_id: '' })}><option value="">Choisir un niveau</option>{(references.niveaux || []).map((item) => <option key={item.code} value={item.code}>{item.libelle}</option>)}</select></label>
+    <label>Classe<select required className="fees-tariff-classe-select" value={form.classe_id} onChange={(event) => { const classeId = event.target.value; const classe = (references.classes || []).find((item) => String(item.id) === classeId); setForm({ ...form, classe_id: classeId, niveau: classe?.niveau || form.niveau }) }} disabled={!form.niveau}><option value="">Choisir une classe</option><option value="__toutes__">Toutes les classes du niveau</option>{classes.map((item) => <option key={item.id} value={item.id}>{item.libelle}</option>)}</select></label>
     <label>Trimestre<select required value={form.trimestre} onChange={(event) => setForm({ ...form, trimestre: event.target.value })}><option value="">Choisir</option>{(references.trimestres || []).map((item) => <option key={item.code} value={item.code}>{item.libelle}</option>)}</select></label>
     <label>Type de frais<select required value={form.type_frais} onChange={(event) => setForm({ ...form, type_frais: event.target.value })}><option value="">Choisir</option>{(references.types_frais || []).map((item) => <option key={item.code} value={item.code}>{item.libelle}</option>)}</select></label>
     <label>Montant<input required inputMode="numeric" value={form.montant} onChange={(event) => setForm({ ...form, montant: event.target.value })}/></label>

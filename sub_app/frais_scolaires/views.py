@@ -437,9 +437,12 @@ def tarifs(request):
                 if expected and str(data.get(field)) != str(expected):
                     return JsonResponse({'detail': f'Le champ {field} est impose par votre jeton.'}, status=403)
             classe_id = data.get('classe_id')
+            toutes_classes = bool(data.get('toutes_classes'))
+            if toutes_classes and jeton.classe_id:
+                return JsonResponse({'detail': 'Votre jeton est limite a une classe et ne permet pas un tarif pour toutes les classes.'}, status=403)
             if jeton.classe_id and str(classe_id) != str(jeton.classe_id):
                 return JsonResponse({'detail': 'La classe est imposee par votre jeton.'}, status=403)
-            if classe_id:
+            if classe_id and not toutes_classes:
                 classe = Classe.objects.select_related('section', 'classe_maternel', 'classe_primaire', 'classe_humanite').filter(id=classe_id).first()
                 if not classe:
                     return JsonResponse({'detail': 'Classe introuvable.'}, status=400)
@@ -459,9 +462,14 @@ def tarifs(request):
                     option_humanite=classe.section.code if classe.section else None,
                 )
             else:
+                niveau_id = data.get('niveau')
+                if not niveau_id or not NiveauClasse.objects.filter(code=niveau_id, est_actif=True).exists():
+                    return JsonResponse({'detail': 'Choisissez un niveau valide pour appliquer le tarif a toutes les classes.'}, status=400)
+                if jeton.niveau_id and niveau_id != jeton.niveau_id:
+                    return JsonResponse({'detail': 'Ce niveau est hors du perimetre de votre jeton.'}, status=403)
                 item = TarifFrais.objects.create(
                     annee_scolaire_id=data['annee_scolaire_id'],
-                    niveau_id=data['niveau'],
+                    niveau_id=niveau_id,
                     trimestre_id=data['trimestre'],
                     type_frais_id=data['type_frais'],
                     montant=data['montant'],
