@@ -20,6 +20,8 @@ class ParametreRepartition(models.Model):
     type_frais = models.ForeignKey('frais_scolaires.TypeFrais', to_field='code', on_delete=models.CASCADE, related_name='parametres_repartition')
     annee_scolaire = models.ForeignKey('frais_scolaires.AnneeScolaire', on_delete=models.PROTECT, related_name='parametres_repartition', null=True, blank=True)
     est_actif = models.BooleanField(default=True)
+    accepte_dime = models.BooleanField(default=False)
+    pourcentage_dime = models.DecimalField(max_digits=5, decimal_places=2, default=10)
     date_creation = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -15,6 +15,13 @@ from .models import CategorieRepartition, LigneRepartition, ParametreRepartition
 from .services import rebuild_distributions_for_parameter
 
 
+REPARTITION_CATEGORY_CODES = ['proprietaire', 'enseignants', 'fonctionnement_general', 'fonctionnement_interne']
+
+
+def repartition_categories():
+    return CategorieRepartition.objects.filter(est_active=True, code__in=REPARTITION_CATEGORY_CODES).order_by('ordre', 'libelle')
+
+
 def request_data(request):
     try:
         return json.loads(request.body.decode('utf-8') or '{}')
@@ -51,6 +58,11 @@ def parametres(request):
             return JsonResponse({'detail': 'Ce type de frais est hors du perimetre de votre jeton.'}, status=403)
         name = str(data.get('nom', '')).strip()
         allocations = data.get('allocations', [])
+        accepts_dime = bool(data.get('accepte_dime'))
+        try:
+            dime_percent = Decimal(str(data.get('pourcentage_dime', '10')))
+        except (InvalidOperation, TypeError, ValueError):
+            return JsonResponse({'detail': 'Pourcentage de dime invalide.'}, status=400)
         if not year or not type_frais or not name or not isinstance(allocations, list) or not allocations:
             return JsonResponse({'detail': 'Le nom, le type de frais et les repartitions sont obligatoires.'}, status=400)
         try:
@@ -61,11 +73,13 @@ def parametres(request):
             return JsonResponse({'detail': 'Chaque pourcentage doit etre compris entre 0 et 100.'}, status=400)
         if sum((percent for _, percent in parsed), Decimal('0')) != Decimal('100'):
             return JsonResponse({'detail': 'Le total des pourcentages doit etre exactement egal a 100 %.'}, status=400)
-        categories = {item.id: item for item in CategorieRepartition.objects.filter(id__in=[category_id for category_id, _ in parsed], est_active=True)}
+        if dime_percent < 0 or dime_percent > 100:
+            return JsonResponse({'detail': 'Le pourcentage de dime doit etre compris entre 0 et 100.'}, status=400)
+        categories = {item.id: item for item in repartition_categories().filter(id__in=[category_id for category_id, _ in parsed])}
         if len(categories) != len(parsed):
             return JsonResponse({'detail': 'Une categorie selectionnee est introuvable ou inactive.'}, status=400)
         with transaction.atomic():
-            parameter, _ = ParametreRepartition.objects.update_or_create(type_frais=type_frais, annee_scolaire=year, defaults={'nom': name, 'est_actif': True})
+            parameter, _ = ParametreRepartition.objects.update_or_create(type_frais=type_frais, annee_scolaire=year, defaults={'nom': name, 'est_actif': True, 'accepte_dime': accepts_dime, 'pourcentage_dime': dime_percent})
             RegleRepartition.objects.filter(parametre=parameter).delete()
             RegleRepartition.objects.bulk_create([RegleRepartition(parametre=parameter, type_frais=type_frais, categorie=categories[category_id], pourcentage=percent) for category_id, percent in parsed])
             payments_processed = rebuild_distributions_for_parameter(parameter)
@@ -73,6 +87,8 @@ def parametres(request):
             'id': parameter.id,
             'nom': parameter.nom,
             'type_frais': type_frais.code,
+            'accepte_dime': parameter.accepte_dime,
+            'pourcentage_dime': float(parameter.pourcentage_dime),
             'allocations': serialize_rules(parameter),
             'paiements_repartis': payments_processed,
         })
@@ -80,10 +96,10 @@ def parametres(request):
     if jeton.type_frais_id:
         parameters = parameters.filter(type_frais_id=jeton.type_frais_id)
     return JsonResponse({
-        'categories': [{'id': item.id, 'code': item.code, 'libelle': item.libelle, 'couleur': item.couleur} for item in CategorieRepartition.objects.filter(est_active=True)],
+        'categories': [{'id': item.id, 'code': item.code, 'libelle': item.libelle, 'couleur': item.couleur} for item in repartition_categories()],
         'types_frais': [{'code': item.code, 'libelle': item.libelle} for item in types],
         'annee_scolaire': {'id': year.id, 'annee': year.annee} if year else None,
-        'parametres': [{'id': item.id, 'nom': item.nom, 'type_frais': item.type_frais_id, 'type_frais_libelle': item.type_frais.libelle, 'est_actif': item.est_actif, 'allocations': serialize_rules(item)} for item in parameters],
+        'parametres': [{'id': item.id, 'nom': item.nom, 'type_frais': item.type_frais_id, 'type_frais_libelle': item.type_frais.libelle, 'est_actif': item.est_actif, 'accepte_dime': item.accepte_dime, 'pourcentage_dime': float(item.pourcentage_dime), 'allocations': serialize_rules(item)} for item in parameters],
     })
 
 
@@ -127,15 +143,22 @@ def dashboard(request):
     if date_end:
         lines = lines.filter(paiement__date_paiement__lte=date_end)
     total = lines.aggregate(total=Sum('montant'))['total'] or Decimal('0')
+    payment_ids = lines.values_list('paiement_id', flat=True).distinct()
+    collected_total = Paiement.objects.filter(id__in=payment_ids).aggregate(total=Sum('montant_paye'))['total'] or Decimal('0')
+    dime_total = collected_total - total
+    payment_count = payment_ids.count()
     by_category = []
-    for category in CategorieRepartition.objects.filter(est_active=True):
+    for category in repartition_categories():
         amount = lines.filter(categorie=category).aggregate(total=Sum('montant'))['total'] or Decimal('0')
         by_category.append({'id': category.id, 'libelle': category.libelle, 'couleur': category.couleur, 'amount': float(amount), 'percent': round(float(amount / total * 100), 1) if total else 0})
+    parameter_by_type = {item.type_frais_id: item for item in parameters}
     payments = {}
     for line in lines.order_by('-paiement__date_paiement', '-paiement_id', 'categorie__ordre')[:300]:
         payment = line.paiement
-        item = payments.setdefault(payment.id, {'id': payment.id, 'reference': payment.reference, 'date': payment.date_paiement.isoformat(), 'eleve': f'{payment.eleve.nom} {payment.eleve.post_nom} {payment.eleve.prenom}'.strip(), 'type_frais': str(payment.frais.type_frais), 'amount': float(payment.montant_paye), 'allocations': []})
+        parameter = parameter_by_type.get(payment.frais.type_frais_id)
+        dime_amount = (payment.montant_paye * parameter.pourcentage_dime / Decimal('100')) if parameter and parameter.accepte_dime else Decimal('0')
+        item = payments.setdefault(payment.id, {'id': payment.id, 'reference': payment.reference, 'date': payment.date_paiement.isoformat(), 'eleve': f'{payment.eleve.nom} {payment.eleve.post_nom} {payment.eleve.prenom}'.strip(), 'type_frais': str(payment.frais.type_frais), 'amount': float(payment.montant_paye), 'dime_amount': float(dime_amount), 'dime_percent': float(parameter.pourcentage_dime) if parameter and parameter.accepte_dime else 0, 'allocations': []})
         item['allocations'].append({'libelle': line.categorie.libelle, 'couleur': line.categorie.couleur, 'pourcentage': float(line.pourcentage), 'montant': float(line.montant)})
     today = date.today()
     today_total = lines.filter(paiement__date_paiement=today).aggregate(total=Sum('montant'))['total'] or Decimal('0')
-    return JsonResponse({'annee_scolaire': {'id': year.id, 'annee': year.annee} if year else None, 'parametres': [{'id': item.id, 'nom': item.nom, 'type_frais': item.type_frais_id} for item in parameters], 'total': float(total), 'today_total': float(today_total), 'payment_count': len(payments), 'by_category': by_category, 'payments': list(payments.values())})
+    return JsonResponse({'annee_scolaire': {'id': year.id, 'annee': year.annee} if year else None, 'parametres': [{'id': item.id, 'nom': item.nom, 'type_frais': item.type_frais_id} for item in parameters], 'total': float(total), 'today_total': float(today_total), 'dime_total': float(dime_total), 'payment_count': payment_count, 'by_category': by_category, 'payments': list(payments.values())})

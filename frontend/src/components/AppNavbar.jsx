@@ -170,6 +170,9 @@ function AppNavbar({ identity, onNavigate }) {
               )
             })}
           </nav>
+          <button className="navbar-logout" type="button" onClick={() => onNavigate?.('session.logout')}>
+            Déconnexion
+          </button>
         </div>
       </header>
       <JetonModal

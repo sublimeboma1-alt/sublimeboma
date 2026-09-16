@@ -15,10 +15,13 @@ def create_payment_distribution(paiement):
     rules = list(RegleRepartition.objects.select_related('categorie').filter(parametre=parameter, est_active=True, categorie__est_active=True).order_by('categorie__ordre', 'id'))
     if not rules or sum((rule.pourcentage for rule in rules), Decimal('0')) != Decimal('100'):
         return
-    remaining = paiement.montant_paye
+    dime = Decimal('0')
+    if parameter.accepte_dime:
+        dime = (paiement.montant_paye * parameter.pourcentage_dime / Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    remaining = paiement.montant_paye - dime
     rows = []
     for index, rule in enumerate(rules):
-        amount = remaining if index == len(rules) - 1 else (paiement.montant_paye * rule.pourcentage / Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        amount = remaining if index == len(rules) - 1 else ((paiement.montant_paye - dime) * rule.pourcentage / Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         remaining -= amount
         rows.append(LigneRepartition(paiement=paiement, categorie=rule.categorie, pourcentage=rule.pourcentage, montant=amount))
     LigneRepartition.objects.bulk_create(rows)
