@@ -63,6 +63,8 @@ def scope_tarifs(queryset, jeton):
     if not active_year:
         return queryset.none()
     queryset = queryset.filter(annee_scolaire_id=active_year.id)
+    if jeton.annee_scolaire_id:
+        queryset = queryset.filter(annee_scolaire_id=jeton.annee_scolaire_id)
     if jeton.niveau_id:
         queryset = queryset.filter(niveau_id=jeton.niveau_id)
     if jeton.type_frais_id:
