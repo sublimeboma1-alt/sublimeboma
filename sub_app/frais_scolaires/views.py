@@ -29,10 +29,9 @@ def export_identity():
 def export_filter_summary(request):
     """Retourne un libelle humain des filtres, imprime dans chaque document."""
     values = []
-    year_id = request.GET.get('annee_scolaire', '')
     niveau_code = request.GET.get('niveau', '')
     classe_id = request.GET.get('classe_id', '')
-    year = (AnneeScolaire.objects.filter(id=year_id).first() if year_id else None) or AnneeScolaire.objects.filter(est_active=True).first()
+    year = AnneeScolaire.objects.filter(est_active=True).first()
     if year:
         values.append(f'Annee scolaire : {year.annee}')
     niveau = NiveauClasse.objects.filter(code=niveau_code).first() if niveau_code else None
@@ -72,14 +71,13 @@ def export_filter_summary(request):
 
 def export_filters(queryset, request, prefix='eleve', year_lookup=None):
     """Applique les filtres communs aux exports sans charger les donnees en memoire."""
-    year_id = request.GET.get('annee_scolaire', '').strip()
     classe_id = request.GET.get('classe_id', '').strip()
     niveau = request.GET.get('niveau', '').strip()
     search = request.GET.get('search', '').strip()
     date_start = request.GET.get('date_debut', '').strip()
     date_end = request.GET.get('date_fin', '').strip()
     relation = f'{prefix}__' if prefix else ''
-    selected_year = AnneeScolaire.objects.filter(id=year_id).first() if year_id else AnneeScolaire.objects.filter(est_active=True).first()
+    selected_year = AnneeScolaire.objects.filter(est_active=True).first()
     if selected_year:
         queryset = queryset.filter(**{year_lookup or f'{relation}annee_scolaire_id': selected_year.id})
     if classe_id:
@@ -228,12 +226,7 @@ def payload(request):
 
 
 def selected_year(request):
-    jeton = getattr(request, 'finance_jeton', None)
-    if jeton and jeton.annee_scolaire_id:
-        return jeton.annee_scolaire
-    value = request.GET.get('annee_scolaire', '')
-    if value:
-        return AnneeScolaire.objects.filter(id=value).first()
+    """Financial operations always use the currently active school year."""
     return AnneeScolaire.objects.filter(est_active=True).first()
 
 
@@ -434,8 +427,11 @@ def tarifs(request):
         try:
             data = payload(request)
             jeton = request.finance_jeton
+            active_year = selected_year(request)
+            if not active_year:
+                return JsonResponse({'detail': 'Aucune annee scolaire active n est definie.'}, status=400)
             constraints = {
-                'annee_scolaire_id': jeton.annee_scolaire_id,
+                'annee_scolaire_id': active_year.id,
                 'trimestre': jeton.trimestre_id,
                 'type_frais': jeton.type_frais_id,
             }

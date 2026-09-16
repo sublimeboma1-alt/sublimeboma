@@ -1,11 +1,12 @@
 import json
 
 from django.contrib.auth.decorators import login_required
+from django.db.models import Q
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_http_methods
 
-from .models import CodeJeton
+from .models import AnneeScolaire, CodeJeton
 
 
 SESSION_JETON_KEY = 'finance_jeton_code'
@@ -38,7 +39,11 @@ def finance_jeton_required(view):
 
 
 def scope_frais(queryset, jeton):
-    """Apply non-negotiable token constraints to a FraisScolaire queryset."""
+    """Apply active-school-year and non-negotiable token constraints."""
+    active_year = AnneeScolaire.objects.filter(est_active=True).first()
+    if not active_year:
+        return queryset.none()
+    queryset = queryset.filter(annee_scolaire_id=active_year.id)
     if jeton.annee_scolaire_id:
         queryset = queryset.filter(annee_scolaire_id=jeton.annee_scolaire_id)
     if jeton.niveau_id:
@@ -53,7 +58,11 @@ def scope_frais(queryset, jeton):
 
 
 def scope_tarifs(queryset, jeton):
-    """Apply the fields that exist directly on a TarifFrais queryset."""
+    """Apply active-school-year and token constraints to a TarifFrais queryset."""
+    active_year = AnneeScolaire.objects.filter(est_active=True).first()
+    if not active_year:
+        return queryset.none()
+    queryset = queryset.filter(annee_scolaire_id=active_year.id)
     if jeton.annee_scolaire_id:
         queryset = queryset.filter(annee_scolaire_id=jeton.annee_scolaire_id)
     if jeton.niveau_id:
@@ -62,6 +71,18 @@ def scope_tarifs(queryset, jeton):
         queryset = queryset.filter(type_frais_id=jeton.type_frais_id)
     if jeton.trimestre_id:
         queryset = queryset.filter(trimestre_id=jeton.trimestre_id)
+    if jeton.classe_id:
+        classe = jeton.classe
+        classe_scope = Q(pk__in=[])
+        if classe.classe_maternel_id:
+            classe_scope = Q(classe_maternel_id=classe.classe_maternel_id)
+        elif classe.classe_primaire_id:
+            classe_scope = Q(classe_primaire=classe.classe_primaire_id)
+        elif classe.classe_humanite_id:
+            classe_scope = Q(classe_humanite=classe.classe_humanite_id)
+            if classe.section_id:
+                classe_scope &= Q(option_humanite=classe.section_id)
+        queryset = queryset.filter(classe_scope)
     return queryset
 
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import AppNavbar from '../../../components/AppNavbar'
 import { defaultIdentity, fetchIdentity } from '../../../services/identityService'
 import { useAuth } from '../../auth/context/authState'
+import { useJeton } from '../../auth/context/JetonContext'
 import { applyTariff, createPayment, createTariff, createYear, fetchFeesDashboard, fetchFeesReferences, fetchFeesStatistics, fetchPayments, fetchTariffs, fetchYears } from '../services/fraisService'
 
 const formatMoney = (amount) => new Intl.NumberFormat('fr-FR').format(amount) + ' FC'
@@ -15,7 +16,9 @@ function statusFor(dossier) {
 
 function FraisScolairesPage({ initialTab }) {
   const { user, signOut } = useAuth()
-  const cachedFees = feesPageCache?.username === user?.username ? feesPageCache : null
+  const { jeton } = useJeton()
+  const jetonCode = jeton?.code || ''
+  const cachedFees = feesPageCache?.username === user?.username && feesPageCache?.jetonCode === jetonCode ? feesPageCache : null
   const [identity, setIdentity] = useState(defaultIdentity)
   const [tab, setTab] = useState(initialTab)
   const [dossiers, setDossiers] = useState(() => cachedFees?.dossiers || [])
@@ -42,12 +45,17 @@ function FraisScolairesPage({ initialTab }) {
   useEffect(() => {
     if (cachedFees) return undefined
     let mounted = true
+    setIsLoading(true)
+    setLoadError('')
+    setDossiers([])
+    setPayments([])
+    setPaymentsLoaded(false)
     fetchFeesDashboard()
       .then((dashboard) => {
         if (mounted) {
           const nextDossiers = dashboard.results || []
           setDossiers(nextDossiers)
-          feesPageCache = { username: user?.username, dossiers: nextDossiers, payments: [], paymentsLoaded: false, years: [], tariffs: [], references: {} }
+          feesPageCache = { username: user?.username, jetonCode, dossiers: nextDossiers, payments: [], paymentsLoaded: false, years: [], tariffs: [], references: {} }
         }
       })
       .catch((error) => mounted && setLoadError(error.message || 'Impossible de charger les frais scolaires.'))
@@ -61,7 +69,7 @@ function FraisScolairesPage({ initialTab }) {
       })
       .catch((error) => mounted && setLoadError(error.message || 'Impossible de charger les configurations.'))
     return () => { mounted = false }
-  }, [cachedFees, user?.username])
+  }, [cachedFees, jetonCode, user?.username])
 
   useEffect(() => {
     if (tab !== 'overview' || paymentsLoaded) return
@@ -282,7 +290,7 @@ function YearManager({ years, onOpen }) {
 }
 
 function TariffManager({ tariffs, onOpen }) {
-  return <section className="fees-panel"><div className="fees-panel-head"><div><span>Definition des montants</span><h2>Configurer les tarifs</h2></div><button type="button" className="fees-primary" onClick={onOpen}>+ Nouveau tarif</button></div><PaymentsTable payments={tariffs.map((x) => ({ ...x, reference: x.trimestre, name: `${x.niveau} ${x.classe} ${x.option}`, amount: x.montant, method: x.type_frais, date: '' }))}/></section>
+  return <section className="fees-panel"><div className="fees-panel-head"><div><span>Definition des montants</span><h2>Configurer les tarifs</h2></div><button type="button" className="fees-primary" onClick={onOpen}>+ Nouveau tarif</button></div><div className="fees-table-wrap"><table className="fees-table"><thead><tr><th>Niveau</th><th>Classe / section</th><th>Trimestre</th><th>Type de frais</th><th>Montant</th></tr></thead><tbody>{tariffs.map((tariff) => <tr key={tariff.id}><td>{tariff.niveau || '—'}</td><td>{[tariff.classe, tariff.option].filter(Boolean).join(' · ') || 'Toutes les classes'}</td><td>{tariff.trimestre || '—'}</td><td><span className="payment-method">{tariff.type_frais || '—'}</span></td><td><strong>{formatMoney(tariff.montant)}</strong></td></tr>)}</tbody></table></div>{!tariffs.length && <p className="fees-empty">Aucun tarif disponible pour ce jeton.</p>}</section>
 }
 
 function YearModal({ onClose, onSave }) {

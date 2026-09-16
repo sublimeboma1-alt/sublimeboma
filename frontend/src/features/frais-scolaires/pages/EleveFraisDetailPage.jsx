@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import AppNavbar from '../../../components/AppNavbar'
 import { defaultIdentity, fetchIdentity } from '../../../services/identityService'
 import { useAuth } from '../../auth/context/authState'
+import { useJeton } from '../../auth/context/JetonContext'
 import { createPayment, fetchEleveDetail, fetchFeesReferences } from '../services/fraisService'
 import PaymentModal from '../components/PaymentModal'
 
@@ -15,6 +16,7 @@ function statusBadge(statut) {
 
 function EleveFraisDetailPage({ eleveId, onBack }) {
   const { user, signOut } = useAuth()
+  const { jeton } = useJeton()
   const [identity, setIdentity] = useState(defaultIdentity)
   const [detail, setDetail] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -37,7 +39,7 @@ function EleveFraisDetailPage({ eleveId, onBack }) {
       .catch((err) => { if (mounted) setError(err.message || 'Impossible de charger le detail.') })
       .finally(() => { if (mounted) setIsLoading(false) })
     return () => { mounted = false }
-  }, [eleveId])
+  }, [eleveId, jeton?.code])
 
   function navigate(action) {
     if (action === 'eleves.list') window.location.hash = 'eleves'
