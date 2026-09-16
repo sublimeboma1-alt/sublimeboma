@@ -1,12 +1,13 @@
 # admin.py
 from django.contrib import admin
+from django import forms
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.urls import reverse
 from django.utils import timezone
 from django.db.models import Sum
 from .models import AnneeScolaire, TarifFrais, FraisScolaire, Paiement, TypeFrais, ModePaiement, StatutPaiement, Trimestre, CodeJeton
-from sub_app.eleves.models import Eleve
+from sub_app.eleves.models import Classe, Eleve
 
 @admin.register(AnneeScolaire)
 class AnneeScolaireAdmin(admin.ModelAdmin):
@@ -81,8 +82,49 @@ class TrimestreAdmin(admin.ModelAdmin):
     list_editable = ['libelle', 'est_actif']
 
 
+class TarifFraisAdminForm(forms.ModelForm):
+    """Expose une seule liste de classes et derive les champs techniques du tarif."""
+    classe = forms.ModelChoiceField(queryset=Classe.objects.none(), label='Classe')
+
+    class Meta:
+        model = TarifFrais
+        fields = ('annee_scolaire', 'classe', 'trimestre', 'type_frais', 'montant')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['classe'].queryset = Classe.objects.select_related(
+            'niveau', 'classe_maternel', 'classe_primaire', 'classe_humanite', 'section'
+        ).order_by('niveau__libelle', 'id')
+        tarif = self.instance
+        if not tarif.pk:
+            return
+        classes = self.fields['classe'].queryset.filter(niveau_id=tarif.niveau_id)
+        if tarif.classe_maternel_id:
+            classes = classes.filter(classe_maternel_id=tarif.classe_maternel_id)
+        elif tarif.classe_primaire:
+            classes = classes.filter(classe_primaire_id=tarif.classe_primaire)
+        elif tarif.classe_humanite:
+            classes = classes.filter(classe_humanite_id=tarif.classe_humanite)
+            if tarif.option_humanite:
+                classes = classes.filter(section_id=tarif.option_humanite)
+        self.initial['classe'] = classes.first()
+
+    def clean(self):
+        cleaned_data = super().clean()
+        classe = cleaned_data.get('classe')
+        if not classe:
+            return cleaned_data
+        self.instance.niveau = classe.niveau
+        self.instance.classe_maternel = classe.classe_maternel
+        self.instance.classe_primaire = classe.classe_primaire_id
+        self.instance.classe_humanite = classe.classe_humanite_id
+        self.instance.option_humanite = classe.section_id
+        return cleaned_data
+
+
 @admin.register(TarifFrais)
 class TarifFraisAdmin(admin.ModelAdmin):
+    form = TarifFraisAdminForm
     list_display = ['niveau', 'classe_display', 'trimestre', 'type_frais', 'montant_formate', 'annee_scolaire', 'montant']
     list_filter = ['niveau', 'trimestre', 'type_frais', 'annee_scolaire']
     search_fields = ['classe_maternel__libelle', 'classe_primaire', 'classe_humanite', 'option_humanite']
@@ -93,8 +135,9 @@ class TarifFraisAdmin(admin.ModelAdmin):
         ('Année scolaire', {
             'fields': ('annee_scolaire',)
         }),
-        ('Niveau et classe', {
-            'fields': ('niveau', 'classe_maternel', 'classe_primaire', 'classe_humanite', 'option_humanite'),
+        ('Classe', {
+            'fields': ('classe',),
+            'description': 'Choisissez la classe : le niveau et la section sont renseignes automatiquement.',
         }),
         ('Frais', {
             'fields': ('trimestre', 'type_frais', 'montant'),
