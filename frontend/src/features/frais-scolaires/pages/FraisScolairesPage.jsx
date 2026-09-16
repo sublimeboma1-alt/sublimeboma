@@ -43,13 +43,16 @@ function FraisScolairesPage({ initialTab }) {
   useEffect(() => { setTab(initialTab) }, [initialTab])
   useEffect(() => { fetchIdentity().then(setIdentity).catch(() => {}) }, [])
   useEffect(() => {
-    if (cachedFees) return undefined
     let mounted = true
-    setIsLoading(true)
+    // Le cache conserve un affichage instantané au retour du détail, mais les
+    // montants sont toujours relus afin d'afficher le paiement qui vient d'être enregistré.
+    if (!cachedFees) {
+      setIsLoading(true)
+      setDossiers([])
+      setPayments([])
+      setPaymentsLoaded(false)
+    }
     setLoadError('')
-    setDossiers([])
-    setPayments([])
-    setPaymentsLoaded(false)
     fetchFeesDashboard()
       .then((dashboard) => {
         if (mounted) {
@@ -75,7 +78,7 @@ function FraisScolairesPage({ initialTab }) {
         }
       })
     return () => { mounted = false }
-  }, [cachedFees, jetonCode, user?.username])
+  }, [jetonCode, user?.username])
 
   useEffect(() => {
     if (tab !== 'overview' || paymentsLoaded) return
@@ -246,7 +249,7 @@ function FraisScolairesPage({ initialTab }) {
               const [label, key] = statusFor(item)
               const rate = item.total ? Math.round((item.paid / item.total) * 100) : 0
               return (
-                <article key={item.id} className="fees-dossier">
+                <article key={item.id} className="fees-dossier fees-dossier-clickable" role="button" tabIndex={0} aria-label={`Voir le détail des frais de ${item.name}`} onClick={() => { window.location.hash = `frais-situation/${item.id}` }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); window.location.hash = `frais-situation/${item.id}` } }}>
                   <div className="dossier-avatar">{item.name.split(' ').map((part) => part[0]).join('')}</div>
                   <div className="dossier-main">
                     <strong>{item.name}</strong>
@@ -259,9 +262,6 @@ function FraisScolairesPage({ initialTab }) {
                     <div className="dossier-rate"><span>Taux</span><strong>{rate}%</strong><i style={{ width: `${rate}%` }} /></div>
                   </div>
                   <span className={`payment-status ${key}`}>{label}</span>
-                  <div className="fees-dossier-action">
-                    <button type="button" className="fees-btn-detail" onClick={() => { window.location.hash = `frais-situation/${item.id}` }}>Detail</button>
-                  </div>
                 </article>
               )
             })}

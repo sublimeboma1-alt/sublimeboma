@@ -47,6 +47,10 @@ function RepartitionPage({ mode = 'dashboard' }) {
 
   useEffect(() => { fetchIdentity().then(setIdentity).catch(() => {}); load() }, [])
   const total = useMemo(() => allocations.reduce((sum, item) => sum + Number(item.pourcentage || 0), 0), [allocations])
+  const directAllocations = useMemo(() => allocations.filter((item) => !['fonctionnement_general', 'fonctionnement_interne'].includes(item.code)), [allocations])
+  const generalAllocation = useMemo(() => allocations.find((item) => item.code === 'fonctionnement_general'), [allocations])
+  const internalAllocation = useMemo(() => allocations.find((item) => item.code === 'fonctionnement_interne'), [allocations])
+  const functioningTotal = Number(generalAllocation?.pourcentage || 0) + Number(internalAllocation?.pourcentage || 0)
 
   function changeType(code) {
     const parameter = settings.parametres?.find((item) => item.type_frais === code && item.est_actif)
@@ -55,6 +59,24 @@ function RepartitionPage({ mode = 'dashboard' }) {
   }
   function changePercent(categoryId, value) {
     setAllocations((items) => items.map((item) => item.categorie_id === categoryId ? { ...item, pourcentage: value } : item))
+  }
+  function changeFunctioningTotal(value) {
+    const nextTotal = Math.min(Math.max(Number(value || 0), 0), 100)
+    const nextInternal = Math.min(Number(internalAllocation?.pourcentage || 0), nextTotal)
+    setAllocations((items) => items.map((item) => {
+      if (item.code === 'fonctionnement_interne') return { ...item, pourcentage: nextInternal }
+      if (item.code === 'fonctionnement_general') return { ...item, pourcentage: nextTotal - nextInternal }
+      return item
+    }))
+  }
+  function changeFunctioningShare(code, value) {
+    const share = Math.min(Math.max(Number(value || 0), 0), functioningTotal)
+    setAllocations((items) => items.map((item) => {
+      if (item.code === code) return { ...item, pourcentage: share }
+      if (item.code === 'fonctionnement_general') return { ...item, pourcentage: functioningTotal - share }
+      if (item.code === 'fonctionnement_interne') return { ...item, pourcentage: functioningTotal - share }
+      return item
+    }))
   }
   async function saveSettings() {
     setNotice(''); setError('')
@@ -120,7 +142,7 @@ function RepartitionPage({ mode = 'dashboard' }) {
             <label className="repartition-select">Type de frais<select value={selectedType} onChange={(event) => changeType(event.target.value)}>{settings.types_frais.map((type) => <option key={type.code} value={type.code}>{type.libelle}</option>)}</select></label>
             <label className="dime-choice"><input type="checkbox" checked={acceptsDime} onChange={(event) => setAcceptsDime(event.target.checked)} /><span><b>Ce paramètre accepte la dîme</b><small>La dîme est retirée avant de répartir le solde entre les quatre rubriques.</small></span></label>
             {acceptsDime && <label className="repartition-select">Pourcentage de dime<input type="number" min="0" max="100" step="0.01" value={dimePercent} onChange={(event) => setDimePercent(event.target.value)} /></label>}
-            <div className="allocation-list">{allocations.length ? allocations.map((item) => <div className="allocation-row" key={item.categorie_id}><i style={{ background: item.couleur }} /><label>{item.libelle}<input aria-label={`Pourcentage ${item.libelle}`} type="number" min="0" max="100" step="0.01" value={item.pourcentage} onChange={(event) => changePercent(item.categorie_id, event.target.value)} /></label><b>%</b></div>) : <p className="settings-help">Aucune categorie de repartition active. Ajoutez d'abord les categories dans l'administration pour definir leurs pourcentages.</p>}</div>
+            <div className="allocation-list">{allocations.length ? <>{directAllocations.map((item) => <div className="allocation-row" key={item.categorie_id}><i style={{ background: item.couleur }} /><label>{item.libelle}<input aria-label={`Pourcentage ${item.libelle}`} type="number" min="0" max="100" step="0.01" value={item.pourcentage} onChange={(event) => changePercent(item.categorie_id, event.target.value)} /></label><b>%</b></div>)}{generalAllocation && internalAllocation && <section className="functioning-allocation"><header><div><b>Fonctionnement</b><small>Définissez d’abord son pourcentage total, puis répartissez-le entre les deux tranches.</small></div><label>Total fonctionnement<input aria-label="Pourcentage total fonctionnement" type="number" min="0" max="100" step="0.01" value={functioningTotal} onChange={(event) => changeFunctioningTotal(event.target.value)} /><b>%</b></label></header><div className="functioning-splits"><label><span>Fonctionnement général</span><input aria-label="Pourcentage fonctionnement général" type="number" min="0" max={functioningTotal} step="0.01" value={generalAllocation.pourcentage} onChange={(event) => changeFunctioningShare('fonctionnement_general', event.target.value)} /><b>%</b></label><label><span>Fonctionnement interne</span><input aria-label="Pourcentage fonctionnement interne" type="number" min="0" max={functioningTotal} step="0.01" value={internalAllocation.pourcentage} onChange={(event) => changeFunctioningShare('fonctionnement_interne', event.target.value)} /><b>%</b></label></div></section>}</> : <p className="settings-help">Aucune categorie de repartition active. Ajoutez d'abord les categories dans l'administration pour definir leurs pourcentages.</p>}</div>
             <p className="settings-help">A l'enregistrement, la cle est appliquee a tous les paiements deja enregistres pour ce type de frais dans l'annee scolaire active, puis aux nouveaux encaissements.</p>
             <button className="save-repartition" type="button" disabled={saving || !allocations.length} onClick={async () => { if (await saveSettings()) { setIsCreateModalOpen(false); window.location.hash = 'repartition' } }}>{saving ? 'Enregistrement...' : 'Enregistrer et voir la repartition'}</button></div></div>}
           </article>
