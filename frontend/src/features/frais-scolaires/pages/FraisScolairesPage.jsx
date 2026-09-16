@@ -88,6 +88,20 @@ function FraisScolairesPage({ initialTab }) {
   }, [tab, paymentsLoaded])
 
   useEffect(() => {
+    if (tab !== 'tariffs' && tab !== 'apply') return
+    let mounted = true
+    setLoadError('')
+    fetchTariffs()
+      .then((rows) => {
+        if (!mounted) return
+        setTariffs(rows)
+        if (feesPageCache) feesPageCache = { ...feesPageCache, tariffs: rows }
+      })
+      .catch((error) => mounted && setLoadError(error.message || 'Impossible de charger les tarifs de l annee active.'))
+    return () => { mounted = false }
+  }, [tab])
+
+  useEffect(() => {
     if (tab !== 'statistics') return
     fetchFeesStatistics(statisticsFilters).then(setStatistics).catch((error) => setLoadError(error.message || 'Impossible de charger les statistiques.'))
   }, [tab, statisticsFilters])
