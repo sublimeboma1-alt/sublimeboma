@@ -145,10 +145,10 @@ function ElevesPage({ openCreate = false }) {
       const createdEleve = await createEleve(cleanElevePayload(payload))
       // Evite un second appel qui recharge toute la liste apres chaque ajout.
       setEleves((current) => [createdEleve, ...current])
-      setIsCreateOpen(false)
-      window.location.hash = 'eleves'
+      return createdEleve
     } catch (error) {
       setFormError(error.message || "Impossible d'ajouter l'eleve.")
+      return null
     } finally {
       setIsSaving(false)
     }

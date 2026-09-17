@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { API_BASE_URL } from '../../../services/apiClient'
 
 const initialForm = {
@@ -100,7 +100,17 @@ function EleveFormModal({ classes, eleve, references, isOpen, mode = 'create', o
   const [form, setForm] = useState(() => getInitialForm(eleve))
   const [photoPreview, setPhotoPreview] = useState(getMediaUrl(eleve?.photo_url))
   const [isCompressing, setIsCompressing] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false)
   const selectedLevel = form.niveau_code
+
+  useEffect(() => {
+    if (!saveSuccess) {
+      return undefined
+    }
+
+    const timeoutId = window.setTimeout(() => setSaveSuccess(false), 3000)
+    return () => window.clearTimeout(timeoutId)
+  }, [saveSuccess])
 
   const filteredClasses = useMemo(() => {
     if (!selectedLevel) {
@@ -148,14 +158,20 @@ function EleveFormModal({ classes, eleve, references, isOpen, mode = 'create', o
     }
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
     const payload = { ...form }
     delete payload.niveau_code
     if (!payload.photo_file) {
       delete payload.photo_file
     }
-    onSubmit(payload)
+
+    const savedEleve = await onSubmit(payload)
+    if (savedEleve && mode === 'create') {
+      setForm({ ...initialForm })
+      setPhotoPreview('')
+      setSaveSuccess(true)
+    }
   }
 
   return (
@@ -271,6 +287,18 @@ function EleveFormModal({ classes, eleve, references, isOpen, mode = 'create', o
           </footer>
         </form>
       </section>
+      {saveSuccess && (
+        <div className="student-save-backdrop" role="presentation">
+          <section className="student-save-modal" role="alertdialog" aria-modal="true" aria-labelledby="student-save-title">
+            <span className="student-save-icon" aria-hidden="true">✓</span>
+            <div>
+              <h2 id="student-save-title">Élève enregistré</h2>
+              <p>Vous pouvez immédiatement enregistrer un autre élève.</p>
+            </div>
+            <button type="button" className="primary-action" onClick={() => setSaveSuccess(false)}>OK</button>
+          </section>
+        </div>
+      )}
     </div>
   )
 }

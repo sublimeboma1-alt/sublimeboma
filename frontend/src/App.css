@@ -929,6 +929,58 @@ td span {
   line-height: 1.55;
 }
 
+.student-save-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(20, 33, 61, 0.2);
+}
+
+.student-save-modal {
+  width: min(390px, 100%);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid #bde4d4;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 20px 50px rgba(20, 33, 61, 0.28);
+}
+
+.student-save-modal h2,
+.student-save-modal p {
+  margin: 0;
+}
+
+.student-save-modal h2 {
+  color: #126c53;
+  font-size: 17px;
+}
+
+.student-save-modal p {
+  margin-top: 4px;
+  color: #5d6f7c;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.student-save-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #ffffff;
+  background: #16805e;
+  font-size: 20px;
+  font-weight: 900;
+}
+
 .modal-wide {
   width: min(920px, 100%);
 }
