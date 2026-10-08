@@ -38,12 +38,12 @@ def finance_jeton_required(view):
     return wrapped
 
 
-def scope_frais(queryset, jeton):
-    """Apply active-school-year and non-negotiable token constraints."""
-    active_year = AnneeScolaire.objects.filter(est_active=True).first()
-    if not active_year:
+def scope_frais(queryset, jeton, annee_scolaire=None):
+    """Apply the selected school year and non-negotiable token constraints."""
+    year = annee_scolaire or AnneeScolaire.objects.filter(est_active=True).first()
+    if not year:
         return queryset.none()
-    queryset = queryset.filter(annee_scolaire_id=active_year.id)
+    queryset = queryset.filter(annee_scolaire_id=year.id)
     if jeton.annee_scolaire_id:
         queryset = queryset.filter(annee_scolaire_id=jeton.annee_scolaire_id)
     if jeton.niveau_id:
@@ -57,12 +57,12 @@ def scope_frais(queryset, jeton):
     return queryset
 
 
-def scope_tarifs(queryset, jeton):
-    """Apply active-school-year and token constraints to a TarifFrais queryset."""
-    active_year = AnneeScolaire.objects.filter(est_active=True).first()
-    if not active_year:
+def scope_tarifs(queryset, jeton, annee_scolaire=None):
+    """Apply the selected school year and token constraints to a TarifFrais queryset."""
+    year = annee_scolaire or AnneeScolaire.objects.filter(est_active=True).first()
+    if not year:
         return queryset.none()
-    queryset = queryset.filter(annee_scolaire_id=active_year.id)
+    queryset = queryset.filter(annee_scolaire_id=year.id)
     if jeton.annee_scolaire_id:
         queryset = queryset.filter(annee_scolaire_id=jeton.annee_scolaire_id)
     if jeton.niveau_id:

@@ -14,7 +14,7 @@ function statusBadge(statut) {
   return ['Partiel', 'partial']
 }
 
-function EleveFraisDetailPage({ eleveId, onBack }) {
+function EleveFraisDetailPage({ eleveId, anneeScolaireId, onBack }) {
   const { user, signOut } = useAuth()
   const { jeton } = useJeton()
   const [identity, setIdentity] = useState(defaultIdentity)
@@ -34,12 +34,12 @@ function EleveFraisDetailPage({ eleveId, onBack }) {
     setDetail(null)
     setError('')
     fetchFeesReferences().then((refs) => { if (mounted) setReferences(refs) }).catch(() => {})
-    fetchEleveDetail(eleveId)
+    fetchEleveDetail(eleveId, { annee_scolaire: anneeScolaireId })
       .then((data) => { if (mounted) setDetail(data) })
       .catch((err) => { if (mounted) setError(err.message || 'Impossible de charger le detail.') })
       .finally(() => { if (mounted) setIsLoading(false) })
     return () => { mounted = false }
-  }, [eleveId, jeton?.code])
+  }, [eleveId, anneeScolaireId, jeton?.code])
 
   function navigate(action) {
     if (action === 'eleves.list') window.location.hash = 'eleves'
@@ -61,7 +61,7 @@ function EleveFraisDetailPage({ eleveId, onBack }) {
 
   async function handlePayment({ fraisId, amount: value, modeCode, description }) {
     await createPayment({ frais_id: fraisId, montant_paye: value, mode_paiement: modeCode, description })
-    const data = await fetchEleveDetail(eleveId)
+    const data = await fetchEleveDetail(eleveId, { annee_scolaire: anneeScolaireId })
     setDetail(data)
     setPaymentTarget(null)
   }

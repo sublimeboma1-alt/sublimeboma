@@ -4,21 +4,24 @@ function results(payload) {
   return payload?.results || []
 }
 
-export async function fetchFeesDashboard() {
-  return apiClient.get(API_ENDPOINTS.frais.dashboard)
+function queryString(params = {}) {
+  const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value !== '' && value !== undefined && value !== null)).toString()
+  return query ? `?${query}` : ''
+}
+
+export async function fetchFeesDashboard(params = {}) {
+  return apiClient.get(`${API_ENDPOINTS.frais.dashboard}${queryString(params)}`)
 }
 export async function fetchFeesStatistics(params = {}) {
-  const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value)).toString()
-  return apiClient.get(`${API_ENDPOINTS.frais.statistics}${query ? `?${query}` : ''}`)
+  return apiClient.get(`${API_ENDPOINTS.frais.statistics}${queryString(params)}`)
 }
 
 export async function fetchDossiers(params = {}) {
-  const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value)).toString()
-  return results(await apiClient.get(`${API_ENDPOINTS.frais.dossiers}${query ? `?${query}` : ''}`))
+  return results(await apiClient.get(`${API_ENDPOINTS.frais.dossiers}${queryString(params)}`))
 }
 
-export async function fetchPayments() {
-  return results(await apiClient.get(API_ENDPOINTS.frais.paiements))
+export async function fetchPayments(params = {}) {
+  return results(await apiClient.get(`${API_ENDPOINTS.frais.paiements}${queryString(params)}`))
 }
 
 export async function createPayment(payload) {
@@ -28,10 +31,10 @@ export async function createPayment(payload) {
 export async function fetchFeesReferences() { return apiClient.get(API_ENDPOINTS.frais.references) }
 export async function fetchYears() { return results(await apiClient.get(API_ENDPOINTS.frais.annees)) }
 export async function createYear(payload) { return apiClient.post(API_ENDPOINTS.frais.annees, payload) }
-export async function fetchTariffs() { return results(await apiClient.get(API_ENDPOINTS.frais.tarifs)) }
+export async function fetchTariffs(params = {}) { return results(await apiClient.get(`${API_ENDPOINTS.frais.tarifs}${queryString(params)}`)) }
 export async function createTariff(payload) { return apiClient.post(API_ENDPOINTS.frais.tarifs, payload) }
 export async function applyTariff(tarifId) { return apiClient.post(API_ENDPOINTS.frais.apply, { tarif_id: tarifId }) }
-export async function fetchEleveDetail(eleveId) { return apiClient.get(API_ENDPOINTS.frais.eleveDetail(eleveId)) }
+export async function fetchEleveDetail(eleveId, params = {}) { return apiClient.get(`${API_ENDPOINTS.frais.eleveDetail(eleveId)}${queryString(params)}`) }
 
 export async function exportSchoolData(params = {}) {
   const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value !== '' && value !== undefined && value !== null)).toString()

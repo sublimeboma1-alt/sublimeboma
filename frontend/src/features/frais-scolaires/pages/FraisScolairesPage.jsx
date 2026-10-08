@@ -29,6 +29,7 @@ function FraisScolairesPage({ initialTab }) {
   const [years, setYears] = useState(() => cachedFees?.years || [])
   const [tariffs, setTariffs] = useState(() => cachedFees?.tariffs || [])
   const [references, setReferences] = useState(() => cachedFees?.references || {})
+  const [selectedYear, setSelectedYear] = useState('')
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('all')
   const [niveau, setNiveau] = useState('')
@@ -53,7 +54,7 @@ function FraisScolairesPage({ initialTab }) {
       setPaymentsLoaded(false)
     }
     setLoadError('')
-    fetchFeesDashboard()
+    fetchFeesDashboard({ annee_scolaire: selectedYear })
       .then((dashboard) => {
         if (mounted) {
           const nextDossiers = dashboard.results || []
@@ -63,7 +64,7 @@ function FraisScolairesPage({ initialTab }) {
       })
       .catch((error) => mounted && setLoadError(error.message || 'Impossible de charger les frais scolaires.'))
       .finally(() => mounted && setIsLoading(false))
-    Promise.allSettled([fetchYears(), fetchTariffs(), fetchFeesReferences()])
+    Promise.allSettled([fetchYears(), fetchTariffs({ annee_scolaire: selectedYear }), fetchFeesReferences()])
       .then(([yearsResult, tariffsResult, referencesResult]) => {
         if (mounted) {
           const yearRows = yearsResult.status === 'fulfilled' ? yearsResult.value : []
@@ -78,23 +79,23 @@ function FraisScolairesPage({ initialTab }) {
         }
       })
     return () => { mounted = false }
-  }, [jetonCode, user?.username])
+  }, [jetonCode, user?.username, selectedYear])
 
   useEffect(() => {
     if (tab !== 'overview' || paymentsLoaded) return
-    fetchPayments()
+    fetchPayments({ annee_scolaire: selectedYear })
       .then((rows) => {
         setPayments(rows); setPaymentsLoaded(true)
         if (feesPageCache) feesPageCache = { ...feesPageCache, payments: rows, paymentsLoaded: true }
       })
       .catch((error) => setLoadError(error.message || 'Impossible de charger les paiements.'))
-  }, [tab, paymentsLoaded])
+  }, [tab, paymentsLoaded, selectedYear])
 
   useEffect(() => {
     if (tab !== 'tariffs' && tab !== 'apply') return
     let mounted = true
     setLoadError('')
-    fetchTariffs()
+    fetchTariffs({ annee_scolaire: selectedYear })
       .then((rows) => {
         if (!mounted) return
         setTariffs(rows)
@@ -102,7 +103,7 @@ function FraisScolairesPage({ initialTab }) {
       })
       .catch((error) => mounted && setLoadError(error.message || 'Impossible de charger les tarifs de l annee active.'))
     return () => { mounted = false }
-  }, [tab])
+  }, [tab, selectedYear])
 
   useEffect(() => {
     if (tab !== 'statistics') return
@@ -114,7 +115,7 @@ function FraisScolairesPage({ initialTab }) {
     paid: acc.paid + item.paid,
   }), { expected: 0, paid: 0 }), [dossiers])
   const recovery = totals.expected ? Math.round((totals.paid / totals.expected) * 100) : 0
-  const activeYear = (references.annees_scolaires || []).find((item) => item.id === references.annee_active_id)?.annee || ''
+  const activeYear = (references.annees_scolaires || []).find((item) => String(item.id) === String(selectedYear || references.annee_active_id))?.annee || ''
 
   const filtered = dossiers.filter((item) => {
     const [label, key] = statusFor(item)
@@ -141,7 +142,8 @@ function FraisScolairesPage({ initialTab }) {
 
   async function reloadData() {
     try {
-      const [dashboard, paymentRows, tariffRows] = await Promise.all([fetchFeesDashboard(), fetchPayments(), fetchTariffs()])
+      const params = { annee_scolaire: selectedYear }
+      const [dashboard, paymentRows, tariffRows] = await Promise.all([fetchFeesDashboard(params), fetchPayments(params), fetchTariffs(params)])
       setDossiers(dashboard.results || [])
       setPayments(paymentRows)
       setPaymentsLoaded(true)
@@ -198,6 +200,12 @@ function FraisScolairesPage({ initialTab }) {
             <span>Suivez les encaissements, les soldes et les dossiers de vos eleves.</span>
           </div>
           <div className="fees-header-actions">
+            <label className="fees-year-filter">Année scolaire
+              <select value={selectedYear} onChange={(event) => { setSelectedYear(event.target.value); setStatisticsFilters((current) => ({ ...current, annee_scolaire: event.target.value })) }}>
+                <option value="">Année active</option>
+                {(references.annees_scolaires || []).map((year) => <option key={year.id} value={year.id}>{year.annee}</option>)}
+              </select>
+            </label>
             <span className="user-chip">{user?.username}</span>
           </div>
         </header>
@@ -249,7 +257,7 @@ function FraisScolairesPage({ initialTab }) {
               const [label, key] = statusFor(item)
               const rate = item.total ? Math.round((item.paid / item.total) * 100) : 0
               return (
-                <article key={item.id} className="fees-dossier fees-dossier-clickable" role="button" tabIndex={0} aria-label={`Voir le détail des frais de ${item.name}`} onClick={() => { window.location.hash = `frais-situation/${item.id}` }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); window.location.hash = `frais-situation/${item.id}` } }}>
+                <article key={item.id} className="fees-dossier fees-dossier-clickable" role="button" tabIndex={0} aria-label={`Voir le détail des frais de ${item.name}`} onClick={() => { window.location.hash = `frais-situation/${item.id}/${selectedYear || references.annee_active_id || ''}` }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); window.location.hash = `frais-situation/${item.id}/${selectedYear || references.annee_active_id || ''}` } }}>
                   <div className="dossier-avatar">{item.name.split(' ').map((part) => part[0]).join('')}</div>
                   <div className="dossier-main">
                     <strong>{item.name}</strong>
@@ -277,7 +285,7 @@ function FraisScolairesPage({ initialTab }) {
 
       {selected && <div className="fees-modal-backdrop" role="presentation"><form className="fees-modal" onSubmit={recordPayment}><button type="button" className="fees-modal-close" onClick={() => setSelected(null)}>×</button><span>Nouveau paiement</span><h2>{selected.name}</h2><p>Solde restant : <strong>{formatMoney(selected.total - selected.paid)}</strong></p><label>Montant a encaisser<input autoFocus inputMode="numeric" value={amount} onChange={(event) => setAmount(event.target.value.replace(/\D/g, ''))} placeholder="Ex. 50000" /></label><div><button type="button" onClick={() => setSelected(null)}>Annuler</button><button type="submit" className="fees-primary">Valider le paiement</button></div></form></div>}
       {configModal === 'year' && <YearModal onClose={() => setConfigModal('')} onSave={async (data) => { const item = await createYear(data); setYears((rows) => [item, ...rows]); setConfigModal('') }} />}
-      {configModal === 'tariff' && <TariffModalWithFeedback references={references} onClose={() => setConfigModal('')} onSave={async (data) => { await createTariff(data); setTariffs(await fetchTariffs()); setConfigModal('') }} />}
+      {configModal === 'tariff' && <TariffModalWithFeedback references={references} onClose={() => setConfigModal('')} onSave={async (data) => { await createTariff(data); setTariffs(await fetchTariffs({ annee_scolaire: selectedYear })); setConfigModal('') }} />}
       {applyTarget && <ApplyModal tariff={applyTarget} onClose={() => setApplyTarget(null)} onConfirm={async () => { const result = await applyTariff(applyTarget.id); setApplyTarget(null); alert(`${result.created} frais crees pour ${result.eligible} eleves.`); await reloadData() }} />}
     </main>
   )

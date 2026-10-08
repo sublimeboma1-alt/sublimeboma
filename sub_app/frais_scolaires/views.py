@@ -226,15 +226,23 @@ def payload(request):
 
 
 def selected_year(request):
-    """Financial operations always use the currently active school year."""
+    """Return the requested school year, unless the token imposes one."""
+    jeton = getattr(request, 'finance_jeton', None)
+    if jeton and jeton.annee_scolaire_id:
+        return jeton.annee_scolaire
+    year_id = request.GET.get('annee_scolaire', '').strip()
+    if year_id:
+        return AnneeScolaire.objects.filter(id=year_id).first()
     return AnneeScolaire.objects.filter(est_active=True).first()
 
 
 def dossiers_queryset(request):
     year = selected_year(request)
-    frais = scope_frais(FraisScolaire.objects.select_related('niveau').prefetch_related('paiements'), request.finance_jeton)
-    if year:
-        frais = frais.filter(annee_scolaire=year)
+    frais = scope_frais(
+        FraisScolaire.objects.select_related('niveau').prefetch_related('paiements'),
+        request.finance_jeton,
+        year,
+    )
     return frais, year
 
 
@@ -268,7 +276,11 @@ def financial_filters(queryset, request, relation='eleve__', year_key=None):
 @require_http_methods(['GET'])
 def statistiques(request):
     """Tableau de bord financier filtre par le perimetre du jeton."""
-    fees = scope_frais(FraisScolaire.objects.select_related('niveau', 'trimestre', 'type_frais'), request.finance_jeton)
+    fees = scope_frais(
+        FraisScolaire.objects.select_related('niveau', 'trimestre', 'type_frais'),
+        request.finance_jeton,
+        selected_year(request),
+    )
     trimestre = request.finance_jeton.trimestre_id or request.GET.get('trimestre', '')
     type_frais = request.finance_jeton.type_frais_id or request.GET.get('type_frais', '')
     if trimestre:
@@ -321,7 +333,7 @@ def references(request):
             'section': str(item.section) if item.section else '',
         })
     jeton = request.finance_jeton
-    annees = AnneeScolaire.objects.filter(est_active=True)
+    annees = AnneeScolaire.objects.all()
     niveaux = NiveauClasse.objects.filter(est_actif=True)
     types = TypeFrais.objects.filter(est_actif=True)
     trimestres = Trimestre.objects.filter(est_actif=True)
@@ -368,6 +380,7 @@ def eleve_detail(request, eleve_id):
             Prefetch('paiements', queryset=Paiement.objects.select_related('eleve', 'frais__eleve', 'mode_paiement', 'agent'))
         ).filter(eleve=eleve),
         request.finance_jeton,
+        selected_year(request),
     )
     return JsonResponse(serialize_eleve_detail(eleve, list(frais)))
 
@@ -390,11 +403,9 @@ def paiements(request):
         except ValidationError as error:
             return JsonResponse({'errors': error.message_dict}, status=400)
         return JsonResponse(serialize_paiement(paiement), status=201)
-    frais_autorises = scope_frais(FraisScolaire.objects.all(), request.finance_jeton)
-    queryset = Paiement.objects.select_related('frais', 'mode_paiement').filter(frais__in=frais_autorises).order_by('-date_paiement', '-id')
     year = selected_year(request)
-    if year:
-        queryset = queryset.filter(frais__annee_scolaire=year)
+    frais_autorises = scope_frais(FraisScolaire.objects.all(), request.finance_jeton, year)
+    queryset = Paiement.objects.select_related('frais', 'mode_paiement').filter(frais__in=frais_autorises).order_by('-date_paiement', '-id')
     return JsonResponse({'results': [serialize_paiement(item) for item in queryset]})
 
 
@@ -482,7 +493,7 @@ def tarifs(request):
             return JsonResponse({'detail': str(error)}, status=400)
         return JsonResponse({'id': item.id}, status=201)
     year = selected_year(request)
-    rows = scope_tarifs(TarifFrais.objects.select_related('niveau', 'trimestre', 'type_frais').filter(annee_scolaire=year), request.finance_jeton) if year else TarifFrais.objects.none()
+    rows = scope_tarifs(TarifFrais.objects.select_related('niveau', 'trimestre', 'type_frais').filter(annee_scolaire=year), request.finance_jeton, year) if year else TarifFrais.objects.none()
     return JsonResponse({'results': [{'id': item.id, 'niveau': str(item.niveau), 'classe': str(item.classe_maternel or item.classe_primaire or item.classe_humanite or ''), 'option': item.option_humanite or '', 'trimestre': str(item.trimestre), 'type_frais': str(item.type_frais), 'montant': float(item.montant)} for item in rows]})
 
 

@@ -1212,6 +1212,8 @@ td span {
 .fees-header h1 { font-size: 34px; }
 .fees-header > div > span { display: block; margin-top: 7px; color: #6b7a89; font-size: 13px; font-weight: 700; }
 .fees-header-actions, .fees-tabs, .fees-panel-head, .fees-filters { display: flex; align-items: center; gap: 10px; }
+.fees-year-filter { display: grid; gap: 3px; color: #5c7080; font-size: 10px; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }
+.fees-year-filter select { min-height: 34px; padding: 0 9px; color: #20344c; background: #fff; font-size: 12px; font-weight: 800; text-transform: none; }
 .fees-primary { min-height: 42px; border: 0; border-radius: 9px; color: #fff; background: #0c756f; box-shadow: 0 9px 18px rgba(12, 90, 91, .18); }
 .fees-primary:hover { border: 0; background: #084e51; transform: translateY(-1px); }
 .fees-tabs { width: max-content; max-width: 100%; overflow: auto; padding: 5px; border: 1px solid #dce5eb; border-radius: 10px; background: #fff; box-shadow: 0 8px 22px rgba(20, 33, 61, .05); }
