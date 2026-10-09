@@ -148,6 +148,22 @@ def export_dataframe(request):
             rows = rows.filter(frais__trimestre_id=trimestre)
         if type_frais:
             rows = rows.filter(frais__type_frais_id=type_frais)
+        paid_total = rows.filter(statut_id='valide').aggregate(total=Sum('montant_paye'))['total'] or Decimal('0')
+        year = selected_year(request)
+        budget_rows = scope_frais_lecture(FraisScolaire.objects.all(), request.finance_jeton, year)
+        classe_id = request.GET.get('classe_id', '').strip()
+        niveau = request.GET.get('niveau', '').strip()
+        search = request.GET.get('search', '').strip()
+        if classe_id:
+            budget_rows = budget_rows.filter(eleve__classe_id=classe_id)
+        if niveau:
+            budget_rows = budget_rows.filter(eleve__classe__niveau_id=niveau)
+        if search:
+            budget_rows = budget_rows.filter(
+                Q(eleve__matricule__icontains=search) | Q(eleve__nom__icontains=search)
+                | Q(eleve__post_nom__icontains=search) | Q(eleve__prenom__icontains=search)
+            )
+        budget_total = budget_rows.aggregate(total=Sum('montant_total'))['total'] or Decimal('0')
         data = []
         for row in rows:
             eleve = row.eleve or row.frais.eleve
@@ -159,7 +175,6 @@ def export_dataframe(request):
                 'Nom complet': nom_complet,
                 'Classe': str(classe) if classe else '',
                 'Niveau': str(classe.niveau) if classe and classe.niveau else '',
-                'Annee scolaire': str(row.frais.annee_scolaire),
                 'Trimestre': str(row.frais.trimestre),
                 'Type de frais': str(row.frais.type_frais),
                 'Montant paye': float(row.montant_paye),
@@ -167,7 +182,7 @@ def export_dataframe(request):
                 'Statut': str(row.statut),
                 'Observation': row.description or '',
             })
-        return pd.DataFrame(data), 'rapport_frais', 'Rapport des paiements et frais'
+        return pd.DataFrame(data), 'rapport_frais', 'Rapport des paiements et frais', {'budget': budget_total, 'paid': paid_total}
 
     rows = export_filters(
         Eleve.objects.select_related('annee_scolaire', 'classe__niveau', 'sexe', 'statut'), request, prefix=''
@@ -190,14 +205,14 @@ def export_dataframe(request):
         'Statut': str(row.statut), 'MASP': 'Oui' if row.est_masp else 'Non', 'Telephone': row.telephone,
         'Email': row.email, "Date d'inscription": row.date_inscription,
     } for row in rows]
-    return pd.DataFrame(data), 'inscriptions', 'Registre des inscriptions'
+    return pd.DataFrame(data), 'inscriptions', 'Registre des inscriptions', None
 
 @login_required
 @finance_jeton_required
 @require_http_methods(['GET'])
 def export_data(request):
     """Genere un XLSX ou PDF a partir des filtres recus depuis l'interface."""
-    dataframe, filename, title = export_dataframe(request)
+    dataframe, filename, title, financial_summary = export_dataframe(request)
     identity = export_identity()
     filter_summary = export_filter_summary(request)
     export_format = request.GET.get('format', 'xlsx').lower()
@@ -205,27 +220,36 @@ def export_data(request):
     if export_format == 'xlsx':
         output = BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            # Les six premieres lignes constituent l'en-tete officiel du document.
-            dataframe.to_excel(writer, sheet_name='Donnees', index=False, startrow=6)
+            # L'en-tete du rapport reserve une zone aux indicateurs financiers.
+            dataframe.to_excel(writer, sheet_name='Donnees', index=False, startrow=9 if financial_summary else 7)
             sheet = writer.sheets['Donnees']
             last_column = max(len(dataframe.columns) - 1, 0)
             title_format = writer.book.add_format({'bold': True, 'font_size': 16, 'font_color': '#14213D', 'align': 'center', 'valign': 'vcenter'})
             subtitle_format = writer.book.add_format({'bold': True, 'font_size': 11, 'font_color': '#0C5A5B', 'align': 'center', 'valign': 'vcenter'})
             details_format = writer.book.add_format({'font_size': 9, 'font_color': '#536271', 'align': 'center', 'valign': 'vcenter'})
             report_format = writer.book.add_format({'bold': True, 'font_size': 13, 'font_color': '#14213D', 'align': 'center', 'valign': 'vcenter'})
+            metric_label_format = writer.book.add_format({'bold': True, 'font_size': 9, 'font_color': '#536271', 'bg_color': '#EAF2F3', 'align': 'center', 'valign': 'vcenter', 'border': 1, 'border_color': '#D9E3E7'})
+            metric_value_format = writer.book.add_format({'bold': True, 'font_size': 13, 'font_color': '#0C5A5B', 'bg_color': '#F5F9F9', 'align': 'center', 'valign': 'vcenter', 'num_format': '#,##0.00 "FC"', 'border': 1, 'border_color': '#D9E3E7'})
             contact = ' | '.join(value for value in [getattr(identity, 'adresse', ''), getattr(identity, 'telephone', ''), getattr(identity, 'email', '')] if value)
             sheet.merge_range(0, 0, 0, last_column, getattr(identity, 'nom', '') or 'Etablissement', title_format)
             sheet.merge_range(1, 0, 1, last_column, getattr(identity, 'espace', '') or getattr(identity, 'sigle', ''), subtitle_format)
             sheet.merge_range(2, 0, 2, last_column, contact, details_format)
             sheet.merge_range(3, 0, 3, last_column, title, report_format)
-            sheet.merge_range(4, 0, 4, last_column, f'Genere le {timezone.localtime().strftime("%d/%m/%Y a %H:%M")}', details_format)
+            year = selected_year(request)
+            sheet.merge_range(4, 0, 4, last_column, f'Annee scolaire : {year or "Non precisee"} | Genere le {timezone.localtime().strftime("%d/%m/%Y a %H:%M")}', details_format)
             sheet.merge_range(5, 0, 5, last_column, f'Filtres : {filter_summary}', details_format)
+            if financial_summary:
+                split = max(last_column // 2, 0)
+                sheet.merge_range(6, 0, 6, split, 'BUDGET ANNUEL', metric_label_format)
+                sheet.merge_range(6, split + 1, 6, last_column, 'MONTANT REELLEMENT PAYE', metric_label_format)
+                sheet.merge_range(7, 0, 7, split, float(financial_summary['budget']), metric_value_format)
+                sheet.merge_range(7, split + 1, 7, last_column, float(financial_summary['paid']), metric_value_format)
             header_format = writer.book.add_format({'bold': True, 'bg_color': '#0C5A5B', 'font_color': '#FFFFFF', 'border': 0})
             for index, column in enumerate(dataframe.columns):
                 width = max(len(str(column)), *(dataframe[column].fillna('').astype(str).map(len).tolist() or [0])) + 2
                 sheet.set_column(index, index, min(width, 32))
-                sheet.write(6, index, column, header_format)
-            sheet.freeze_panes(7, 0)
+                sheet.write(9 if financial_summary else 7, index, column, header_format)
+            sheet.freeze_panes(10 if financial_summary else 8, 0)
         response = HttpResponse(output.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = f'attachment; filename="{filename}_{stamp}.xlsx"'
         return response
@@ -255,7 +279,9 @@ def export_data(request):
         Paragraph(escape(contact), centered_details),
         Paragraph(escape(title), centered_subtitle),
         Paragraph(f'Genere le {timezone.localtime().strftime("%d/%m/%Y a %H:%M")}', centered_details),
+        Paragraph(f'Annee scolaire : {escape(str(selected_year(request) or "Non precisee"))}', centered_details),
         Paragraph(f'Filtres : {escape(filter_summary)}', centered_details),
+        *([Table([['BUDGET ANNUEL', 'MONTANT REELLEMENT PAYE'], [f"{financial_summary['budget']:,.2f} FC", f"{financial_summary['paid']:,.2f} FC"]], colWidths=[document.width / 2] * 2, style=TableStyle([('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#EAF2F3')), ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#536271')), ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('TEXTCOLOR', (0, 1), (-1, 1), colors.HexColor('#0C5A5B')), ('FONTNAME', (0, 1), (-1, 1), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 10), ('ALIGN', (0, 0), (-1, -1), 'CENTER'), ('BOX', (0, 0), (-1, -1), .5, colors.HexColor('#D9E3E7')), ('INNERGRID', (0, 0), (-1, -1), .5, colors.HexColor('#D9E3E7'))]))] if financial_summary else []),
         Spacer(1, 12), table,
     ])
     response = HttpResponse(output.getvalue(), content_type='application/pdf')
