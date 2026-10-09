@@ -18,6 +18,7 @@ function FraisScolairesPage({ initialTab }) {
   const { user, signOut } = useAuth()
   const { jeton } = useJeton()
   const jetonCode = jeton?.code || ''
+  const jetonYearId = jeton?.annee_scolaire_id ? String(jeton.annee_scolaire_id) : ''
   const cachedFees = feesPageCache?.username === user?.username && feesPageCache?.jetonCode === jetonCode ? feesPageCache : null
   const [identity, setIdentity] = useState(defaultIdentity)
   const [tab, setTab] = useState(initialTab)
@@ -115,7 +116,8 @@ function FraisScolairesPage({ initialTab }) {
     paid: acc.paid + item.paid,
   }), { expected: 0, paid: 0 }), [dossiers])
   const recovery = totals.expected ? Math.round((totals.paid / totals.expected) * 100) : 0
-  const activeYear = (references.annees_scolaires || []).find((item) => String(item.id) === String(selectedYear || references.annee_active_id))?.annee || ''
+  const effectiveYearId = selectedYear || jetonYearId || String(references.annee_active_id || '')
+  const activeYear = (references.annees_scolaires || []).find((item) => String(item.id) === String(effectiveYearId))?.annee || ''
 
   const filtered = dossiers.filter((item) => {
     const [label, key] = statusFor(item)
@@ -201,7 +203,7 @@ function FraisScolairesPage({ initialTab }) {
           </div>
           <div className="fees-header-actions">
             <label className="fees-year-filter">Année scolaire
-              <select value={selectedYear} onChange={(event) => { setSelectedYear(event.target.value); setStatisticsFilters((current) => ({ ...current, annee_scolaire: event.target.value })) }}>
+              <select value={selectedYear || jetonYearId} disabled={Boolean(jetonYearId)} onChange={(event) => { setSelectedYear(event.target.value); setStatisticsFilters((current) => ({ ...current, annee_scolaire: event.target.value })) }}>
                 <option value="">Année active</option>
                 {(references.annees_scolaires || []).map((year) => <option key={year.id} value={year.id}>{year.annee}</option>)}
               </select>
@@ -270,6 +272,7 @@ function FraisScolairesPage({ initialTab }) {
                     <div className="dossier-rate"><span>Taux</span><strong>{rate}%</strong><i style={{ width: `${rate}%` }} /></div>
                   </div>
                   <span className={`payment-status ${key}`}>{label}</span>
+                  {item.balance > 0 && item.frais_id && <button type="button" className="fees-small fees-primary" onClick={(event) => { event.stopPropagation(); setSelected(item) }}>Enregistrer un paiement</button>}
                 </article>
               )
             })}
