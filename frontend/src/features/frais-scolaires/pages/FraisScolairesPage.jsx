@@ -8,6 +8,9 @@ import { applyTariff, createPayment, createTariff, createYear, fetchFeesDashboar
 const formatMoney = (amount) => new Intl.NumberFormat('fr-FR').format(amount) + ' FC'
 let feesPageCache = null
 
+function readSelectedYear() {
+  try { return sessionStorage.getItem('finance_school_year') || '' } catch { return '' }
+}
 function statusFor(dossier) {
   if (dossier.paid >= dossier.total) return ['Paye', 'paid']
   if (dossier.paid === 0) return ['Impayé', 'late']
@@ -19,7 +22,9 @@ function FraisScolairesPage({ initialTab }) {
   const { jeton } = useJeton()
   const jetonCode = jeton?.code || ''
   const jetonYearId = jeton?.annee_scolaire_id ? String(jeton.annee_scolaire_id) : ''
-  const cachedFees = feesPageCache?.username === user?.username && feesPageCache?.jetonCode === jetonCode ? feesPageCache : null
+  const [selectedYear, setSelectedYear] = useState(readSelectedYear)
+  const yearKey = jetonYearId || selectedYear || 'active'
+  const cachedFees = feesPageCache?.username === user?.username && feesPageCache?.jetonCode === jetonCode && feesPageCache?.yearKey === yearKey ? feesPageCache : null
   const [identity, setIdentity] = useState(defaultIdentity)
   const [tab, setTab] = useState(initialTab)
   const [dossiers, setDossiers] = useState(() => cachedFees?.dossiers || [])
@@ -30,7 +35,6 @@ function FraisScolairesPage({ initialTab }) {
   const [years, setYears] = useState(() => cachedFees?.years || [])
   const [tariffs, setTariffs] = useState(() => cachedFees?.tariffs || [])
   const [references, setReferences] = useState(() => cachedFees?.references || {})
-  const [selectedYear, setSelectedYear] = useState('')
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('all')
   const [niveau, setNiveau] = useState('')
@@ -60,7 +64,7 @@ function FraisScolairesPage({ initialTab }) {
         if (mounted) {
           const nextDossiers = dashboard.results || []
           setDossiers(nextDossiers)
-          feesPageCache = { username: user?.username, jetonCode, dossiers: nextDossiers, payments: [], paymentsLoaded: false, years: [], tariffs: [], references: {} }
+          feesPageCache = { username: user?.username, jetonCode, yearKey, dossiers: nextDossiers, payments: [], paymentsLoaded: false, years: [], tariffs: [], references: {} }
         }
       })
       .catch((error) => mounted && setLoadError(error.message || 'Impossible de charger les frais scolaires.'))
@@ -116,7 +120,7 @@ function FraisScolairesPage({ initialTab }) {
     paid: acc.paid + item.paid,
   }), { expected: 0, paid: 0 }), [dossiers])
   const recovery = totals.expected ? Math.round((totals.paid / totals.expected) * 100) : 0
-  const effectiveYearId = selectedYear || jetonYearId || String(references.annee_active_id || '')
+  const effectiveYearId = jetonYearId || selectedYear || String(references.annee_active_id || '')
   const activeYear = (references.annees_scolaires || []).find((item) => String(item.id) === String(effectiveYearId))?.annee || ''
 
   const filtered = dossiers.filter((item) => {
@@ -150,7 +154,7 @@ function FraisScolairesPage({ initialTab }) {
       setPayments(paymentRows)
       setPaymentsLoaded(true)
       setTariffs(tariffRows)
-      if (feesPageCache) feesPageCache = { ...feesPageCache, dossiers: dashboard.results || [], payments: paymentRows, paymentsLoaded: true, tariffs: tariffRows }
+      if (feesPageCache) feesPageCache = { ...feesPageCache, yearKey, dossiers: dashboard.results || [], payments: paymentRows, paymentsLoaded: true, tariffs: tariffRows }
     } catch (error) {
       setLoadError(error.message || 'Impossible de rafraichir les donnees.')
     }
@@ -203,7 +207,7 @@ function FraisScolairesPage({ initialTab }) {
           </div>
           <div className="fees-header-actions">
             <label className="fees-year-filter">Année scolaire
-              <select value={selectedYear || jetonYearId} disabled={Boolean(jetonYearId)} onChange={(event) => { setSelectedYear(event.target.value); setStatisticsFilters((current) => ({ ...current, annee_scolaire: event.target.value })) }}>
+              <select value={jetonYearId || selectedYear} disabled={Boolean(jetonYearId)} onChange={(event) => { const value = event.target.value; setSelectedYear(value); try { value ? sessionStorage.setItem('finance_school_year', value) : sessionStorage.removeItem('finance_school_year') } catch {} setStatisticsFilters((current) => ({ ...current, annee_scolaire: event.target.value })) }}>
                 <option value="">Année active</option>
                 {(references.annees_scolaires || []).map((year) => <option key={year.id} value={year.id}>{year.annee}</option>)}
               </select>

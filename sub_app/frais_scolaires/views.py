@@ -238,11 +238,10 @@ def selected_year(request):
 
 def dossiers_queryset(request):
     year = selected_year(request)
-    frais = scope_frais(
-        FraisScolaire.objects.select_related('niveau').prefetch_related('paiements'),
-        request.finance_jeton,
-        year,
-    )
+    base_frais = FraisScolaire.objects.select_related('niveau').prefetch_related('paiements')
+    if request.GET.get('annee_scolaire', '').strip() and not year:
+        return base_frais.none(), None
+    frais = scope_frais(base_frais, request.finance_jeton, year)
     return frais, year
 
 
