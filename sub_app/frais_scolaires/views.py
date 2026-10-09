@@ -252,6 +252,15 @@ def grouped_dossiers(request):
     for item in frais.select_related('eleve__classe__niveau', 'eleve__classe__section'):
         if item.eleve_id:
             groups[item.eleve].append(item)
+    if year:
+        eleves = Eleve.objects.select_related('classe__niveau', 'classe__section').filter(annee_scolaire=year)
+        jeton = request.finance_jeton
+        if jeton.niveau_id:
+            eleves = eleves.filter(classe__niveau_id=jeton.niveau_id)
+        if jeton.classe_id:
+            eleves = eleves.filter(classe_id=jeton.classe_id)
+        for eleve in eleves:
+            groups.setdefault(eleve, [])
     return [serialize_dossier(eleve, eleve_frais) for eleve, eleve_frais in groups.items()], year
 
 
