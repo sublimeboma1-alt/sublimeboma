@@ -31,7 +31,7 @@ def export_filter_summary(request):
     values = []
     niveau_code = request.GET.get('niveau', '')
     classe_id = request.GET.get('classe_id', '')
-    year = AnneeScolaire.objects.filter(est_active=True).first()
+    year = selected_year(request)
     if year:
         values.append(f'Annee scolaire : {year.annee}')
     niveau = NiveauClasse.objects.filter(code=niveau_code).first() if niveau_code else None
@@ -98,11 +98,45 @@ def export_filters(queryset, request, prefix='eleve', year_lookup=None):
     return queryset
 
 
+def export_payment_filters(queryset, request):
+    """Apply the export screen filters to payment records, including restored student links."""
+    year = selected_year(request)
+    if year:
+        queryset = queryset.filter(frais__annee_scolaire_id=year.id)
+    elif request.GET.get('annee_scolaire', '').strip():
+        return queryset.none()
+
+    classe_id = request.GET.get('classe_id', '').strip()
+    niveau = request.GET.get('niveau', '').strip()
+    search = request.GET.get('search', '').strip()
+    if classe_id:
+        queryset = queryset.filter(Q(eleve__classe_id=classe_id) | Q(frais__eleve__classe_id=classe_id))
+    if niveau:
+        queryset = queryset.filter(Q(eleve__classe__niveau_id=niveau) | Q(frais__eleve__classe__niveau_id=niveau))
+    if search:
+        student_search = (
+            Q(eleve__matricule__icontains=search) | Q(frais__eleve__matricule__icontains=search)
+            | Q(eleve__nom__icontains=search) | Q(frais__eleve__nom__icontains=search)
+            | Q(eleve__post_nom__icontains=search) | Q(frais__eleve__post_nom__icontains=search)
+            | Q(eleve__prenom__icontains=search) | Q(frais__eleve__prenom__icontains=search)
+        )
+        queryset = queryset.filter(student_search)
+    if request.GET.get('date_debut', '').strip():
+        queryset = queryset.filter(date_paiement__gte=request.GET['date_debut'])
+    if request.GET.get('date_fin', '').strip():
+        queryset = queryset.filter(date_paiement__lte=request.GET['date_fin'])
+    return queryset.distinct()
+
+
 def export_dataframe(request):
     scope = request.GET.get('scope', 'inscriptions')
     if scope == 'frais':
-        rows = export_filters(
-            Paiement.objects.select_related('frais__annee_scolaire', 'frais__trimestre', 'frais__type_frais', 'mode_paiement', 'statut'), request, year_lookup='frais__annee_scolaire_id'
+        rows = export_payment_filters(
+            Paiement.objects.select_related(
+                'eleve__classe__niveau', 'frais__eleve__classe__niveau', 'frais__annee_scolaire',
+                'frais__trimestre', 'frais__type_frais', 'mode_paiement', 'statut',
+            ),
+            request,
         )
         rows = rows.filter(frais__in=scope_frais_lecture(FraisScolaire.objects.all(), request.finance_jeton, selected_year(request)))
         status = request.GET.get('statut', '').strip()
@@ -114,21 +148,31 @@ def export_dataframe(request):
             rows = rows.filter(frais__trimestre_id=trimestre)
         if type_frais:
             rows = rows.filter(frais__type_frais_id=type_frais)
-        data = [{
-            'Recu': row.reference, 'Date paiement': row.date_paiement, 'Matricule': '',
-            'Eleve': '', 'Classe': '', 'Niveau': '',
-            'Annee scolaire': str(row.frais.annee_scolaire), 'Trimestre': str(row.frais.trimestre),
-            'Type de frais': str(row.frais.type_frais), 'Montant paye': float(row.montant_paye),
-            'Mode de paiement': str(row.mode_paiement), 'Statut': str(row.statut), 'Observation': row.description or '',
-        } for row in rows]
+        data = []
+        for row in rows:
+            eleve = row.eleve or row.frais.eleve
+            classe = eleve.classe if eleve else None
+            nom_complet = f'{eleve.nom} {eleve.post_nom} {eleve.prenom}'.strip() if eleve else 'Eleve non renseigne'
+            data.append({
+                'Recu': row.reference,
+                'Date paiement': row.date_paiement,
+                'Nom complet': nom_complet,
+                'Classe': str(classe) if classe else '',
+                'Niveau': str(classe.niveau) if classe and classe.niveau else '',
+                'Annee scolaire': str(row.frais.annee_scolaire),
+                'Trimestre': str(row.frais.trimestre),
+                'Type de frais': str(row.frais.type_frais),
+                'Montant paye': float(row.montant_paye),
+                'Mode de paiement': str(row.mode_paiement),
+                'Statut': str(row.statut),
+                'Observation': row.description or '',
+            })
         return pd.DataFrame(data), 'rapport_frais', 'Rapport des paiements et frais'
 
     rows = export_filters(
         Eleve.objects.select_related('annee_scolaire', 'classe__niveau', 'sexe', 'statut'), request, prefix=''
     )
     jeton = request.finance_jeton
-    if jeton.annee_scolaire_id:
-        rows = rows.filter(annee_scolaire_id=jeton.annee_scolaire_id)
     if jeton.niveau_id:
         rows = rows.filter(classe__niveau_id=jeton.niveau_id)
     if jeton.classe_id:
@@ -140,14 +184,13 @@ def export_dataframe(request):
     if sexe:
         rows = rows.filter(sexe_id=sexe)
     data = [{
-        'Matricule': row.matricule, 'Nom': row.nom, 'Post-nom': row.post_nom, 'Prenom': row.prenom,
+        'Nom complet': f'{row.nom} {row.post_nom} {row.prenom}'.strip(),
         'Sexe': str(row.sexe), 'Date naissance': row.date_naissance, 'Classe': str(row.classe or ''),
         'Niveau': str(row.classe.niveau) if row.classe else '', 'Annee scolaire': str(row.annee_scolaire or ''),
         'Statut': str(row.statut), 'MASP': 'Oui' if row.est_masp else 'Non', 'Telephone': row.telephone,
         'Email': row.email, "Date d'inscription": row.date_inscription,
     } for row in rows]
     return pd.DataFrame(data), 'inscriptions', 'Registre des inscriptions'
-
 
 @login_required
 @finance_jeton_required
