@@ -66,6 +66,8 @@ function EleveFraisDetailPage({ eleveId, anneeScolaireId, onBack }) {
     setPaymentTarget(null)
   }
 
+  const isActiveYear = Boolean(detail && references.annee_active_id && String(detail.annee_scolaire_id) === String(references.annee_active_id))
+
   const paymentHistory = (detail?.trimestres || [])
     .flatMap((trimestre) => trimestre.frais.flatMap((frais) => (frais.paiements || []).map((payment) => ({ ...payment, trimestre: trimestre.trimestre, typeFrais: frais.type_frais }))))
     .sort((first, second) => `${second.date}-${second.id}`.localeCompare(`${first.date}-${first.id}`))
@@ -133,7 +135,7 @@ function EleveFraisDetailPage({ eleveId, anneeScolaireId, onBack }) {
                       </span>
                     </div>
                   </div>
-                  {trimestre.frais.some((frais) => frais.balance > 0) && (
+                  {isActiveYear && trimestre.frais.some((frais) => frais.balance > 0) && (
                     <button type="button" className="fees-primary fees-trimestre-pay" onClick={() => openPayment(trimestre)}>
                       Payer ce trimestre
                     </button>

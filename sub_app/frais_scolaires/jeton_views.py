@@ -85,6 +85,46 @@ def scope_tarifs(queryset, jeton, annee_scolaire=None):
         queryset = queryset.filter(classe_scope)
     return queryset
 
+def scope_frais_lecture(queryset, jeton, annee_scolaire):
+    """Read-only finance scope: allow the selected year, retaining all other token limits."""
+    if not annee_scolaire:
+        return queryset.none()
+    queryset = queryset.filter(annee_scolaire_id=annee_scolaire.id)
+    if jeton.niveau_id:
+        queryset = queryset.filter(niveau_id=jeton.niveau_id)
+    if jeton.classe_id:
+        queryset = queryset.filter(eleve__classe_id=jeton.classe_id)
+    if jeton.type_frais_id:
+        queryset = queryset.filter(type_frais_id=jeton.type_frais_id)
+    if jeton.trimestre_id:
+        queryset = queryset.filter(trimestre_id=jeton.trimestre_id)
+    return queryset
+
+
+def scope_tarifs_lecture(queryset, jeton, annee_scolaire):
+    """Read-only tariff scope for auditing a selected school year."""
+    if not annee_scolaire:
+        return queryset.none()
+    queryset = queryset.filter(annee_scolaire_id=annee_scolaire.id)
+    if jeton.niveau_id:
+        queryset = queryset.filter(niveau_id=jeton.niveau_id)
+    if jeton.type_frais_id:
+        queryset = queryset.filter(type_frais_id=jeton.type_frais_id)
+    if jeton.trimestre_id:
+        queryset = queryset.filter(trimestre_id=jeton.trimestre_id)
+    if jeton.classe_id:
+        classe = jeton.classe
+        classe_scope = Q(pk__in=[])
+        if classe.classe_maternel_id:
+            classe_scope = Q(classe_maternel_id=classe.classe_maternel_id)
+        elif classe.classe_primaire_id:
+            classe_scope = Q(classe_primaire=classe.classe_primaire_id)
+        elif classe.classe_humanite_id:
+            classe_scope = Q(classe_humanite=classe.classe_humanite_id)
+            if classe.section_id:
+                classe_scope &= Q(option_humanite=classe.section_id)
+        queryset = queryset.filter(classe_scope)
+    return queryset
 
 @csrf_protect
 @require_http_methods(['POST'])

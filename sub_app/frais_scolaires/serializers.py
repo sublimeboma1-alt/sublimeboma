@@ -62,10 +62,11 @@ def serialize_frais(frais):
     }
 
 
-def serialize_eleve_detail(eleve, frais):
+def serialize_eleve_detail(eleve, frais, annee_scolaire=None):
     total = sum((f.montant_total for f in frais), Decimal('0'))
     paid = sum((f.total_paye for f in frais), Decimal('0'))
     classe = eleve.classe
+    annee_scolaire = annee_scolaire or (frais[0].annee_scolaire if frais else eleve.annee_scolaire)
     trimestres = {}
     for f in frais:
         key = str(f.trimestre_id)
@@ -86,7 +87,8 @@ def serialize_eleve_detail(eleve, frais):
         'balance': float(total - paid),
         'statut': 'paid' if total > 0 and paid >= total else 'late' if paid == 0 else 'partial',
         'masp': eleve.est_masp,
-        'annee_scolaire': str(eleve.annee_scolaire) if eleve.annee_scolaire else '',
+        'annee_scolaire': str(annee_scolaire) if annee_scolaire else '',
+        'annee_scolaire_id': annee_scolaire.id if annee_scolaire else None,
         'trimestres': [dict(value, total=float(value['total']), paid=float(value['paid']), balance=float(value['total'] - value['paid'])) for value in trimestres.values()],
     }
 

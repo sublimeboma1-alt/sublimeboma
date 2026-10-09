@@ -23,7 +23,7 @@ function FraisScolairesPage({ initialTab }) {
   const jetonCode = jeton?.code || ''
   const jetonYearId = jeton?.annee_scolaire_id ? String(jeton.annee_scolaire_id) : ''
   const [selectedYear, setSelectedYear] = useState(readSelectedYear)
-  const yearKey = jetonYearId || selectedYear || 'active'
+  const yearKey = selectedYear || jetonYearId || 'active'
   const cachedFees = feesPageCache?.username === user?.username && feesPageCache?.jetonCode === jetonCode && feesPageCache?.yearKey === yearKey ? feesPageCache : null
   const [identity, setIdentity] = useState(defaultIdentity)
   const [tab, setTab] = useState(initialTab)
@@ -120,8 +120,9 @@ function FraisScolairesPage({ initialTab }) {
     paid: acc.paid + item.paid,
   }), { expected: 0, paid: 0 }), [dossiers])
   const recovery = totals.expected ? Math.round((totals.paid / totals.expected) * 100) : 0
-  const effectiveYearId = jetonYearId || selectedYear || String(references.annee_active_id || '')
+  const effectiveYearId = selectedYear || jetonYearId || String(references.annee_active_id || '')
   const activeYear = (references.annees_scolaires || []).find((item) => String(item.id) === String(effectiveYearId))?.annee || ''
+  const isActiveSelectedYear = Boolean(references.annee_active_id && String(effectiveYearId) === String(references.annee_active_id))
 
   const filtered = dossiers.filter((item) => {
     const [label, key] = statusFor(item)
@@ -207,7 +208,7 @@ function FraisScolairesPage({ initialTab }) {
           </div>
           <div className="fees-header-actions">
             <label className="fees-year-filter">Année scolaire
-              <select value={jetonYearId || selectedYear} disabled={Boolean(jetonYearId)} onChange={(event) => { const value = event.target.value; setSelectedYear(value); try { value ? sessionStorage.setItem('finance_school_year', value) : sessionStorage.removeItem('finance_school_year') } catch {} setStatisticsFilters((current) => ({ ...current, annee_scolaire: event.target.value })) }}>
+              <select value={selectedYear || jetonYearId} onChange={(event) => { const value = event.target.value; setSelectedYear(value); try { value ? sessionStorage.setItem('finance_school_year', value) : sessionStorage.removeItem('finance_school_year') } catch {} setStatisticsFilters((current) => ({ ...current, annee_scolaire: event.target.value })) }}>
                 <option value="">Année active</option>
                 {(references.annees_scolaires || []).map((year) => <option key={year.id} value={year.id}>{year.annee}</option>)}
               </select>
@@ -276,7 +277,6 @@ function FraisScolairesPage({ initialTab }) {
                     <div className="dossier-rate"><span>Taux</span><strong>{rate}%</strong><i style={{ width: `${rate}%` }} /></div>
                   </div>
                   <span className={`payment-status ${key}`}>{label}</span>
-                  {item.balance > 0 && item.frais_id && <button type="button" className="fees-small fees-primary" onClick={(event) => { event.stopPropagation(); setSelected(item) }}>Enregistrer un paiement</button>}
                 </article>
               )
             })}
@@ -287,7 +287,7 @@ function FraisScolairesPage({ initialTab }) {
         {!isLoading && tab === 'statistics' && <StatisticsPanel statistics={statistics} filters={statisticsFilters} setFilters={setStatisticsFilters} references={references} />}
         {!isLoading && tab === 'years' && <YearManager years={years} onOpen={() => setConfigModal('year')} />}
         {!isLoading && tab === 'tariffs' && <TariffManager references={references} tariffs={tariffs} onOpen={openTariffModal} />}
-        {!isLoading && tab === 'apply' && <ApplyTariff tariffs={tariffs} onSelect={setApplyTarget} />}
+        {!isLoading && tab === 'apply' && <ApplyTariff tariffs={tariffs} onSelect={setApplyTarget} canApply={isActiveSelectedYear} />}
       </section>
 
       {selected && <div className="fees-modal-backdrop" role="presentation"><form className="fees-modal" onSubmit={recordPayment}><button type="button" className="fees-modal-close" onClick={() => setSelected(null)}>×</button><span>Nouveau paiement</span><h2>{selected.name}</h2><p>Solde restant : <strong>{formatMoney(selected.total - selected.paid)}</strong></p><label>Montant a encaisser<input autoFocus inputMode="numeric" value={amount} onChange={(event) => setAmount(event.target.value.replace(/\D/g, ''))} placeholder="Ex. 50000" /></label><div><button type="button" onClick={() => setSelected(null)}>Annuler</button><button type="submit" className="fees-primary">Valider le paiement</button></div></form></div>}
@@ -361,7 +361,7 @@ function TariffModal({ references, onClose, onSave }) {
   return <div className="fees-modal-backdrop"><form className="fees-modal" onSubmit={async (e) => { e.preventDefault(); await onSave({ ...form, annee_scolaire_id: references.annee_active_id }) }}><button type="button" className="fees-modal-close" onClick={onClose}>×</button><span>Definition tarifaire</span><h2>Nouveau tarif</h2><label>Classe<select required className="fees-tariff-classe-select" value={form.classe_id} onChange={(e) => setForm({ ...form, classe_id: e.target.value })}><option value="">Choisir une classe</option>{classes.map((x) => <option key={x.id} value={x.id}>{x.libelle}</option>)}</select></label><label>Trimestre<select required value={form.trimestre} onChange={(e) => setForm({ ...form, trimestre: e.target.value })}><option value="">Choisir</option>{[1,2,3].map((x) => <option key={x} value={x}>{x}e trimestre</option>)}</select></label><label>Type de frais<select required value={form.type_frais} onChange={(e) => setForm({ ...form, type_frais: e.target.value })}><option value="">Choisir</option>{(references.types_frais || []).map((x) => <option key={x.code} value={x.code}>{x.libelle}</option>)}</select></label><label>Montant<input required inputMode="numeric" value={form.montant} onChange={(e) => setForm({ ...form, montant: e.target.value })}/></label><div><button type="button" onClick={onClose}>Annuler</button><button className="fees-primary" disabled={!references.annee_active_id}>Ajouter</button></div></form></div>
 }
 
-function ApplyTariff({ tariffs, onSelect }) { return <section className="fees-panel"><div className="fees-panel-head"><div><span>Distribution controlee</span><h2>Appliquer un tarif aux eleves</h2></div></div><div className="fees-dossiers">{tariffs.map((tariff) => <article className="fees-dossier" key={tariff.id}><div className="dossier-avatar">TF</div><div className="dossier-main"><strong>{tariff.type_frais} · {tariff.trimestre}</strong><span>{tariff.niveau} {tariff.classe} {tariff.option}</span></div><div className="dossier-progress"><span><b>{formatMoney(tariff.montant)}</b> par eleve</span></div><button type="button" onClick={() => onSelect(tariff)}>Appliquer</button></article>)}</div></section> }
+function ApplyTariff({ tariffs, onSelect, canApply }) { return <section className="fees-panel"><div className="fees-panel-head"><div><span>Distribution controlee</span><h2>Appliquer un tarif aux eleves</h2></div>{!canApply && <small>La creation de frais reste disponible uniquement pour l annee active.</small>}</div><div className="fees-dossiers">{tariffs.map((tariff) => <article className="fees-dossier" key={tariff.id}><div className="dossier-avatar">TF</div><div className="dossier-main"><strong>{tariff.type_frais} · {tariff.trimestre}</strong><span>{tariff.niveau} {tariff.classe} {tariff.option}</span></div><div className="dossier-progress"><span><b>{formatMoney(tariff.montant)}</b> par eleve</span></div><button type="button" disabled={!canApply} onClick={() => onSelect(tariff)}>Appliquer</button></article>)}</div></section> }
 
 function ApplyModal({ tariff, onClose, onConfirm }) {
   return <div className="fees-modal-backdrop"><div className="fees-modal"><button type="button" className="fees-modal-close" onClick={onClose}>×</button><span>Distribution controlee</span><h2>Appliquer ce tarif ?</h2><p><strong>{tariff.type_frais} · {tariff.trimestre}</strong></p><p>{tariff.niveau} {tariff.classe} {tariff.option}</p><p>Montant : <strong>{formatMoney(tariff.montant)}</strong> par eleve</p><div><button type="button" onClick={onClose}>Annuler</button><button className="fees-primary" onClick={onConfirm}>Confirmer</button></div></div></div>
