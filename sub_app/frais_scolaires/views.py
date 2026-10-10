@@ -596,11 +596,27 @@ def appliquer_tarif(request):
     if request.finance_jeton.classe_id:
         eleves = eleves.filter(classe_id=request.finance_jeton.classe_id)
     created = 0
+    updated = 0
+    unchanged = 0
     with transaction.atomic():
         for eleve in eleves:
-            _, was_created = FraisScolaire.objects.get_or_create(eleve=eleve, niveau=tariff.niveau, annee_scolaire=tariff.annee_scolaire, trimestre=tariff.trimestre, type_frais=tariff.type_frais, defaults={'montant_total': tariff.montant})
-            created += was_created
-    return JsonResponse({'created': created, 'eligible': eleves.count()})
+            frais, was_created = FraisScolaire.objects.get_or_create(
+                eleve=eleve,
+                niveau=tariff.niveau,
+                annee_scolaire=tariff.annee_scolaire,
+                trimestre=tariff.trimestre,
+                type_frais=tariff.type_frais,
+                defaults={'montant_total': tariff.montant},
+            )
+            if was_created:
+                created += 1
+            elif tariff.montant > frais.montant_total:
+                frais.montant_total = tariff.montant
+                frais.save(update_fields=['montant_total', 'date_modification'])
+                updated += 1
+            else:
+                unchanged += 1
+    return JsonResponse({'created': created, 'updated': updated, 'unchanged': unchanged, 'eligible': eleves.count()})
 def _paiements_liste_lecture(request):
     """GET-only payment listing; past school years are audit data."""
     year = selected_year(request)
