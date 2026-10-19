@@ -23,6 +23,16 @@ def need_token(request):
 @login_required
 @csrf_protect
 @require_http_methods(['POST'])
+def creer_jeton(request):
+    if not request.user.is_staff:
+        return JsonResponse({'detail': 'La creation du jeton est reservee aux administrateurs.'}, status=403)
+    token = JetonRegularisation.objects.create(cree_par=request.user, description='Jeton genere depuis le frontend')
+    request.session[SESSION_KEY] = token.pk
+    return JsonResponse({'ok': True, 'code': token.code})
+
+@login_required
+@csrf_protect
+@require_http_methods(['POST'])
 def ouvrir(request):
     data = data_json(request)
     if data is None:

@@ -1,3 +1,3 @@
-﻿from django.urls import path
+from django.urls import path
 from . import views
-urlpatterns = [path('api/jeton/ouvrir/', views.ouvrir), path('api/jeton/fermer/', views.fermer), path('api/declarations/', views.declarations), path('api/declarations/<int:item_id>/validation/', views.valider)]
+urlpatterns = [path('api/jeton/creer/', views.creer_jeton), path('api/jeton/ouvrir/', views.ouvrir), path('api/jeton/fermer/', views.fermer), path('api/declarations/', views.declarations), path('api/declarations/<int:item_id>/validation/', views.valider)]
