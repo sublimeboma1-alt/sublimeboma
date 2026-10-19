@@ -401,6 +401,19 @@ def statistiques(request):
         request.finance_jeton,
         selected_year(request),
     )
+    niveau_id = request.GET.get('niveau', '').strip()
+    classe_id = request.GET.get('classe_id', '').strip()
+    if niveau_id or classe_id:
+        eleve_filter = Q()
+        paiement_eleve_filter = Q()
+        if niveau_id:
+            eleve_filter &= Q(eleve__classe__niveau_id=niveau_id)
+            paiement_eleve_filter &= Q(paiements__eleve__classe__niveau_id=niveau_id)
+        if classe_id:
+            eleve_filter &= Q(eleve__classe_id=classe_id)
+            paiement_eleve_filter &= Q(paiements__eleve__classe_id=classe_id)
+        matching_fee_ids = FraisScolaire.objects.filter(eleve_filter | paiement_eleve_filter).values('id')
+        fees = fees.filter(id__in=matching_fee_ids)
     trimestre = request.finance_jeton.trimestre_id or request.GET.get('trimestre', '')
     type_frais = request.finance_jeton.type_frais_id or request.GET.get('type_frais', '')
     if trimestre:
