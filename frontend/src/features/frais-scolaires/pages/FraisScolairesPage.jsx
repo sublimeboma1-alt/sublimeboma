@@ -112,7 +112,13 @@ function FraisScolairesPage({ initialTab }) {
 
   useEffect(() => {
     if (tab !== 'statistics') return
-    fetchFeesStatistics(statisticsFilters).then(setStatistics).catch((error) => setLoadError(error.message || 'Impossible de charger les statistiques.'))
+    let current = true
+    setLoadError('')
+    setStatistics(null)
+    fetchFeesStatistics(statisticsFilters)
+      .then((data) => { if (current) setStatistics(data) })
+      .catch((error) => { if (current) setLoadError(error.message || 'Impossible de charger les statistiques.') })
+    return () => { current = false }
   }, [tab, statisticsFilters])
 
   const totals = useMemo(() => dossiers.reduce((acc, item) => ({

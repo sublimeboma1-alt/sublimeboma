@@ -421,7 +421,18 @@ def statistiques(request):
     if type_frais:
         fees = fees.filter(type_frais_id=type_frais)
     expected = fees.aggregate(total=Sum('montant_total'))['total'] or Decimal('0')
-    payments = Paiement.objects.select_related('eleve', 'frais__eleve', 'frais__type_frais', 'frais__trimestre', 'mode_paiement').filter(statut_id='valide', frais__in=fees).order_by('-date_paiement', '-id')
+    payments = Paiement.objects.select_related('eleve__classe', 'frais__eleve__classe', 'frais__type_frais', 'frais__trimestre', 'mode_paiement').filter(statut_id='valide', frais__in=fees)
+    if niveau_id or classe_id:
+        paiement_eleve_filter = Q()
+        frais_eleve_filter = Q()
+        if niveau_id:
+            paiement_eleve_filter &= Q(eleve__classe__niveau_id=niveau_id)
+            frais_eleve_filter &= Q(frais__eleve__classe__niveau_id=niveau_id)
+        if classe_id:
+            paiement_eleve_filter &= Q(eleve__classe_id=classe_id)
+            frais_eleve_filter &= Q(frais__eleve__classe_id=classe_id)
+        payments = payments.filter(paiement_eleve_filter | frais_eleve_filter)
+    payments = payments.order_by('-date_paiement', '-id')
     date_debut = request.GET.get('date_debut', '')
     date_fin = request.GET.get('date_fin', '')
     if date_debut:
