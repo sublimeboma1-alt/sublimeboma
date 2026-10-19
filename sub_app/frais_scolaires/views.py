@@ -186,7 +186,6 @@ def export_dataframe(request):
                 'Date du paiement': row.date_paiement,
                 'Nom complet': nom_complet,
                 'Classe': str(classe) if classe else '',
-                'Niveau': str(classe.niveau) if classe and classe.niveau else '',
                 'Année scolaire': str(row.frais.annee_scolaire),
                 'Trimestre': str(row.frais.trimestre),
                 'Type de frais': str(row.frais.type_frais),
@@ -194,7 +193,6 @@ def export_dataframe(request):
                 'Montant payé (FC)': float(row.montant_paye),
                 'Solde restant (FC)': float(max(row.frais.montant_total - total_regle, Decimal('0'))),
                 'Statut': str(row.statut),
-                'Observation': row.description or '',
             })
         return pd.DataFrame(data), 'rapport_frais', 'Rapport des paiements et frais', {'budget': budget_total, 'paid': paid_total}
 
@@ -300,7 +298,7 @@ def export_data(request):
         table_data.append([Paragraph('Aucune donnée pour ces filtres.', styles['Normal'])] + [''] * max(0, len(dataframe.columns) - 1))
     header_cells = [Paragraph(escape(str(column)), ParagraphStyle('export-header-cell', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=6.2, leading=7, textColor=colors.white)) for column in dataframe.columns]
     table_data[0] = header_cells
-    column_weights = [0.85, 0.78, 1.45, 0.72, 0.7, 0.92, 0.78, 1.0, 1.0, 0.9, 0.95, 0.7, 1.1]
+    column_weights = [0.9, 0.82, 1.55, 0.8, 0.9, 0.85, 0.9, 1.0, 0.95, 0.95, 0.8]
     if len(column_weights) != len(dataframe.columns):
         column_weights = [1] * len(dataframe.columns)
     weight_total = sum(column_weights) or 1
