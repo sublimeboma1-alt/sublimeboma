@@ -154,6 +154,8 @@ def export_dataframe(request):
         classe_id = request.GET.get('classe_id', '').strip()
         niveau = request.GET.get('niveau', '').strip()
         search = request.GET.get('search', '').strip()
+        trimestre = request.GET.get('trimestre', '').strip()
+        type_frais = request.GET.get('type_frais', '').strip()
         if classe_id:
             budget_rows = budget_rows.filter(eleve__classe_id=classe_id)
         if niveau:
@@ -163,22 +165,34 @@ def export_dataframe(request):
                 Q(eleve__matricule__icontains=search) | Q(eleve__nom__icontains=search)
                 | Q(eleve__post_nom__icontains=search) | Q(eleve__prenom__icontains=search)
             )
+        if trimestre:
+            budget_rows = budget_rows.filter(trimestre_id=trimestre)
+        if type_frais:
+            budget_rows = budget_rows.filter(type_frais_id=type_frais)
         budget_total = budget_rows.aggregate(total=Sum('montant_total'))['total'] or Decimal('0')
+        fee_totals = dict(
+            budget_rows.filter(id__in=rows.values('frais_id')).values_list('id').annotate(
+                total=Sum('paiements__montant_paye', filter=Q(paiements__statut_id='valide'))
+            ).values_list('id', 'total')
+        )
         data = []
         for row in rows:
             eleve = row.eleve or row.frais.eleve
             classe = eleve.classe if eleve else None
             nom_complet = f'{eleve.nom} {eleve.post_nom} {eleve.prenom}'.strip() if eleve else 'Eleve non renseigne'
+            total_regle = fee_totals.get(row.frais_id) or Decimal('0')
             data.append({
                 'Recu': row.reference,
-                'Date paiement': row.date_paiement,
+                'Date du paiement': row.date_paiement,
                 'Nom complet': nom_complet,
                 'Classe': str(classe) if classe else '',
                 'Niveau': str(classe.niveau) if classe and classe.niveau else '',
+                'Année scolaire': str(row.frais.annee_scolaire),
                 'Trimestre': str(row.frais.trimestre),
                 'Type de frais': str(row.frais.type_frais),
-                'Montant paye': float(row.montant_paye),
-                'Mode de paiement': str(row.mode_paiement),
+                'Montant demandé (FC)': float(row.frais.montant_total),
+                'Montant payé (FC)': float(row.montant_paye),
+                'Solde restant (FC)': float(max(row.frais.montant_total - total_regle, Decimal('0'))),
                 'Statut': str(row.statut),
                 'Observation': row.description or '',
             })
@@ -230,6 +244,7 @@ def export_data(request):
             report_format = writer.book.add_format({'bold': True, 'font_size': 17, 'font_color': '#14213D', 'align': 'center', 'valign': 'vcenter'})
             metric_label_format = writer.book.add_format({'bold': True, 'font_size': 11, 'font_color': '#536271', 'bg_color': '#EAF2F3', 'align': 'center', 'valign': 'vcenter', 'border': 1, 'border_color': '#D9E3E7'})
             metric_value_format = writer.book.add_format({'bold': True, 'font_size': 16, 'font_color': '#0C5A5B', 'bg_color': '#F5F9F9', 'align': 'center', 'valign': 'vcenter', 'num_format': '#,##0.00 "FC"', 'border': 1, 'border_color': '#D9E3E7'})
+            amount_format = writer.book.add_format({'num_format': '#,##0.00 "FC"', 'align': 'right'})
             contact = ' | '.join(value for value in [getattr(identity, 'adresse', ''), getattr(identity, 'telephone', ''), getattr(identity, 'email', '')] if value)
             sheet.set_row(0, 34)
             sheet.set_row(1, 25)
@@ -252,7 +267,7 @@ def export_data(request):
             header_format = writer.book.add_format({'bold': True, 'bg_color': '#0C5A5B', 'font_color': '#FFFFFF', 'border': 0})
             for index, column in enumerate(dataframe.columns):
                 width = max(len(str(column)), *(dataframe[column].fillna('').astype(str).map(len).tolist() or [0])) + 2
-                sheet.set_column(index, index, min(width, 32))
+                sheet.set_column(index, index, min(width, 32), amount_format if str(column).endswith('(FC)') else None)
                 sheet.write(9 if financial_summary else 7, index, column, header_format)
             sheet.freeze_panes(10 if financial_summary else 8, 0)
         response = HttpResponse(output.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -272,11 +287,26 @@ def export_data(request):
     centered_title = ParagraphStyle('export-title', parent=styles['Title'], alignment=TA_CENTER, textColor=colors.HexColor('#14213D'), fontSize=24, leading=29, spaceAfter=8)
     centered_subtitle = ParagraphStyle('export-subtitle', parent=styles['Normal'], alignment=TA_CENTER, textColor=colors.HexColor('#0C5A5B'), fontName='Helvetica-Bold', fontSize=13, leading=17, spaceAfter=5)
     centered_details = ParagraphStyle('export-details', parent=styles['Normal'], alignment=TA_CENTER, textColor=colors.HexColor('#536271'), fontSize=10, leading=13, spaceAfter=4)
-    table_data = [list(dataframe.columns)] + dataframe.fillna('').astype(str).values.tolist()
+    money_columns = {'Montant demandé (FC)', 'Montant payé (FC)', 'Solde restant (FC)'}
+    table_data = [list(dataframe.columns)]
+    for values in dataframe.fillna('').itertuples(index=False, name=None):
+        formatted = []
+        for column, value in zip(dataframe.columns, values):
+            if column in money_columns and value != '':
+                value = f'{float(value):,.2f}'.replace(',', ' ').replace('.', ',')
+            formatted.append(Paragraph(escape(str(value)), ParagraphStyle('export-cell', parent=styles['Normal'], fontSize=6, leading=7)))
+        table_data.append(formatted)
     if len(table_data) == 1:
-        table_data.append(['Aucune donnee pour ces filtres.'] + [''] * max(0, len(dataframe.columns) - 1))
-    table = Table(table_data, repeatRows=1)
-    table.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0C5A5B')), ('TEXTCOLOR', (0, 0), (-1, 0), colors.white), ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 7), ('GRID', (0, 0), (-1, -1), .25, colors.HexColor('#D9E3E7')), ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F5F9F9')])]))
+        table_data.append([Paragraph('Aucune donnée pour ces filtres.', styles['Normal'])] + [''] * max(0, len(dataframe.columns) - 1))
+    header_cells = [Paragraph(escape(str(column)), ParagraphStyle('export-header-cell', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=6.2, leading=7, textColor=colors.white)) for column in dataframe.columns]
+    table_data[0] = header_cells
+    column_weights = [0.85, 0.78, 1.45, 0.72, 0.7, 0.92, 0.78, 1.0, 1.0, 0.9, 0.95, 0.7, 1.1]
+    if len(column_weights) != len(dataframe.columns):
+        column_weights = [1] * len(dataframe.columns)
+    weight_total = sum(column_weights) or 1
+    column_widths = [document.width * weight / weight_total for weight in column_weights]
+    table = Table(table_data, colWidths=column_widths, repeatRows=1, hAlign='LEFT')
+    table.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0C5A5B')), ('TEXTCOLOR', (0, 0), (-1, 0), colors.white), ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 6), ('GRID', (0, 0), (-1, -1), .25, colors.HexColor('#D9E3E7')), ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), ('LEFTPADDING', (0, 0), (-1, -1), 3), ('RIGHTPADDING', (0, 0), (-1, -1), 3), ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4), ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F5F9F9')])]))
     contact = ' | '.join(value for value in [getattr(identity, 'adresse', ''), getattr(identity, 'telephone', ''), getattr(identity, 'email', '')] if value)
     document.build([
         Paragraph(escape(getattr(identity, 'nom', '') or 'Etablissement'), centered_title),
