@@ -170,7 +170,7 @@ class EleveAdmin(admin.ModelAdmin):
     def photo_preview(self, obj):
         if obj.photo:
             return format_html('<img src="{}" width="50" height="50" style="border-radius: 50%; object-fit: cover;"/>', obj.photo.url)
-        return format_html('<span style="color: #999;">📷 Aucune</span>')
+        return format_html('<span style="color: #999;">{}</span>', 'Aucune')
     photo_preview.short_description = "Photo"
     
     def actions_buttons(self, obj):

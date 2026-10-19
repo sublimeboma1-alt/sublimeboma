@@ -21,18 +21,24 @@ export default function RegularisationsPage() {
   const load = useCallback(async () => setData(await apiClient.get(`${BASE}/declarations/`)), [])
 
   useEffect(() => {
+    function activateToken(code) {
+      if (!code) return
+      setTokenNotice(code)
+      setActive(true)
+      setMessage('Jeton admin active pour cette session.')
+    }
+    const pendingCode = sessionStorage.getItem('regularisations_jeton_generated_code')
+    if (pendingCode) {
+      activateToken(pendingCode)
+      sessionStorage.removeItem('regularisations_jeton_generated_code')
+    }
+    function onTokenCreated(event) { activateToken(event.detail) }
+    window.addEventListener('regularisations:token-created', onTokenCreated)
+    return () => window.removeEventListener('regularisations:token-created', onTokenCreated)
+  }, [])
+  useEffect(() => {
     if (active) load().catch((e) => setError(e.message))
   }, [active, load])
-
-  async function createToken() {
-    setBusy(true); setError('')
-    try {
-      const result = await apiClient.post(`${BASE}/jeton/creer/`, {})
-      setTokenNotice(result.code)
-      setActive(true)
-      setMessage('Jeton cree et active. Copiez son code pour le partager avec les agents autorises.')
-    } catch (e) { setError(e.message) } finally { setBusy(false) }
-  }
 
   async function openToken(event) {
     event.preventDefault(); setBusy(true); setError('')
@@ -69,7 +75,6 @@ export default function RegularisationsPage() {
       {error && <p role="alert" style={{ color: '#a2313a' }}>{error}</p>}
       {message && <p role="status" style={{ color: '#087164' }}>{message}</p>}
       {!active ? <>
-        {user?.is_staff && <button type="button" disabled={busy} onClick={createToken}>Generer un jeton admin</button>}
         <form onSubmit={openToken} style={{ display: 'flex', gap: 10, margin: '24px 0' }}>
           <input aria-label="Jeton de regularisation" placeholder="Jeton de regularisation" value={token} onChange={(event) => setToken(event.target.value)} required />
           <button disabled={busy}>Ouvrir avec le jeton</button>

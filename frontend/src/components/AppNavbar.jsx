@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useJeton } from '../features/auth/context/JetonContext'
 import JetonModal from '../features/auth/components/JetonModal'
+import { useAuth } from '../features/auth/context/authState'
+import { apiClient } from '../services/apiClient'
 
 const navSections = [
   {
@@ -42,6 +44,7 @@ const navSections = [
     icon: '⚙',
     items: [
       { label: 'Reglements scolaires', href: '#regularisations' },
+      { label: 'Generer un jeton admin', action: 'regularisations.generate', staffOnly: true },
       { label: 'Quitter', action: 'session.logout', isDanger: true },
     ],
   },
@@ -49,8 +52,11 @@ const navSections = [
 
 function AppNavbar({ identity, onNavigate }) {
   const { estActif, jeton, effacer } = useJeton()
+  const { user } = useAuth()
   const [openMenu, setOpenMenu] = useState('')
   const [jetonModalOpen, setJetonModalOpen] = useState(false)
+  const [generatedRegularisationCode, setGeneratedRegularisationCode] = useState('')
+  const [regularisationTokenError, setRegularisationTokenError] = useState('')
   const navRef = useRef(null)
 
   useEffect(() => {
@@ -75,6 +81,18 @@ function AppNavbar({ identity, onNavigate }) {
     }
   }, [])
 
+  async function generateRegularisationToken() {
+    setRegularisationTokenError('')
+    try {
+      const result = await apiClient.post('/regularisations/api/jeton/creer/', {})
+      setRegularisationTokenError('')
+      setGeneratedRegularisationCode(result.code)
+      try { sessionStorage.setItem('regularisations_jeton_generated_code', result.code) } catch {}
+      window.dispatchEvent(new CustomEvent('regularisations:token-created', { detail: result.code }))
+    } catch (error) {
+      setRegularisationTokenError(error.message || 'Impossible de generer le jeton.')
+    }
+  }
   function toggleMenu(label) {
     if (label === 'Finances' && !estActif) {
       setJetonModalOpen(true)
@@ -124,7 +142,7 @@ function AppNavbar({ identity, onNavigate }) {
                           </span>
                         )}
                       </div>
-                      {section.items.map((item) => {
+                      {section.items.filter((item) => !item.staffOnly || user?.is_staff).map((item) => {
                         if (item.action) {
                           return (
                             <button
@@ -133,7 +151,8 @@ function AppNavbar({ identity, onNavigate }) {
                               role="menuitem"
                               className={item.isDanger ? 'danger-action' : undefined}
                               onClick={() => {
-                                onNavigate?.(item.action)
+                                if (item.action === 'regularisations.generate') generateRegularisationToken()
+                                else onNavigate?.(item.action)
                                 setOpenMenu('')
                               }}
                             >
@@ -173,7 +192,17 @@ function AppNavbar({ identity, onNavigate }) {
           </button>
         </div>
       </header>
-      <JetonModal
+      {(generatedRegularisationCode || regularisationTokenError) && (
+        <div className="parameter-modal-backdrop" role="presentation">
+          <section className="parameter-modal" role="dialog" aria-modal="true" aria-labelledby="regularisation-token-title">
+            <h2 id="regularisation-token-title">{generatedRegularisationCode ? 'Jeton de regularisation genere' : 'Generation du jeton impossible'}</h2>
+            <p>Copiez et partagez ce code avec les personnes autorisees.</p>
+            {generatedRegularisationCode && <p><code>{generatedRegularisationCode}</code></p>}
+            {regularisationTokenError && <p role="alert">{regularisationTokenError}</p>}
+            <div className="modal-actions"><button type="button" disabled={!generatedRegularisationCode} onClick={() => navigator.clipboard?.writeText(generatedRegularisationCode)}>Copier le code</button><button type="button" onClick={() => { setGeneratedRegularisationCode(''); setRegularisationTokenError('') }}>Fermer</button></div>
+          </section>
+        </div>
+      )}`r`n      <JetonModal
         isOpen={jetonModalOpen}
         onClose={() => setJetonModalOpen(false)}
         onSuccess={() => {
