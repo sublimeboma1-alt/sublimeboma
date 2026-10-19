@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'sub_app.frais_scolaires',
     'sub_app.depense',  # Ajout de l'application des dépenses
     'sub_app.repartition',
+    'sub_app.regularisations',
 ]
 
 MIDDLEWARE = [

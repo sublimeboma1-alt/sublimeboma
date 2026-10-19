@@ -5,6 +5,7 @@ import EleveFraisDetailPage from './features/frais-scolaires/pages/EleveFraisDet
 import DepensesPage from './features/depenses/pages/DepensesPage'
 import ExportsPage from './features/exports/pages/ExportsPage'
 import RepartitionPage from './features/repartition/pages/RepartitionPage'
+import RegularisationsPage from './features/regularisations/RegularisationsPage'
 import { AuthProvider } from './features/auth/context/AuthProvider'
 import { JetonProvider } from './features/auth/context/JetonContext'
 import { useAuth } from './features/auth/context/authState'
@@ -48,6 +49,7 @@ function ProtectedApp() {
   if (isFinanceRoute && !estActif) {
     return <JetonModal isOpen onClose={() => { window.location.hash = 'eleves' }} onSuccess={() => {}} />
   }
+  if (route === 'regularisations') return <RegularisationsPage />
   if (route === 'depenses') return <DepensesPage />
   if (route === 'exports') return <ExportsPage />
   if (route === 'parametres') return <RepartitionPage mode="settings" />

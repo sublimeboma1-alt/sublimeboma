@@ -54,7 +54,7 @@ function EleveFraisDetailPage({ eleveId, anneeScolaireId, onBack }) {
   }
 
   function openPayment(trimestre) {
-    const payableFees = trimestre.frais.filter((frais) => frais.balance > 0)
+    const payableFees = trimestre.frais.map((frais) => ({ ...frais, balance: Math.min(frais.balance, detail.balance) })).filter((frais) => frais.balance > 0)
     const defaultFee = payableFees.find((frais) => frais.type_frais.trim().toLowerCase() === 'minerval') || payableFees[0]
     if (defaultFee) setPaymentTarget({ trimestre, frais: defaultFee, fraisOptions: payableFees })
   }
@@ -112,13 +112,18 @@ function EleveFraisDetailPage({ eleveId, anneeScolaireId, onBack }) {
               </div>
               <div className="fees-detail-sommaire">
                 <div><span>A payer</span><strong>{formatMoney(detail.total)}</strong></div>
-                <div><span>Paye</span><strong className="text-paid">{formatMoney(detail.paid)}</strong></div>
+                <div><span>Paye</span><strong className="text-paid">{formatMoney(detail.paid)}</strong>{detail.regularisations_admin_total > 0 && <small>dont {formatMoney(detail.regularisations_admin_total)} valides par administration</small>}</div>
                 <div><span>Solde</span><strong className="text-late">{formatMoney(detail.balance)}</strong></div>
                 <div><span>Taux</span><strong>{detail.total ? Math.round((detail.paid / detail.total) * 100) : 0}%</strong></div>
               </div>
             </section>
 
-            <div className="fees-detail-trimestres">
+            {detail.regularisations_admin?.length > 0 && (
+              <section className="fees-global-history">
+                <div className="fees-global-history-head"><div><span>Reglements valides par administration</span><h2>Regularisations de l annee active</h2></div><small>{formatMoney(detail.regularisations_admin_total)}</small></div>
+                <div className="fees-global-payments">{detail.regularisations_admin.map((item) => <article className="fees-global-payment" key={item.id}><div><span className="fees-reference">{item.reference || 'Regularisation admin'}</span><small>Validee · {item.date}</small></div><strong className="fees-payment-amount">{formatMoney(item.montant)}</strong></article>)}</div>
+              </section>
+            )}\r`n            <div className="fees-detail-trimestres">
               {detail.trimestres.length === 0 && <p className="fees-empty">Aucun frais affecte.</p>}
               {detail.trimestres.map((trimestre) => {
                 const progress = trimestre.total ? Math.round((trimestre.paid / trimestre.total) * 100) : 0
@@ -135,7 +140,7 @@ function EleveFraisDetailPage({ eleveId, anneeScolaireId, onBack }) {
                       </span>
                     </div>
                   </div>
-                  {isActiveYear && trimestre.frais.some((frais) => frais.balance > 0) && (
+                  {isActiveYear && detail.balance > 0 && trimestre.frais.some((frais) => frais.balance > 0) && (
                     <button type="button" className="fees-primary fees-trimestre-pay" onClick={() => openPayment(trimestre)}>
                       Payer ce trimestre
                     </button>

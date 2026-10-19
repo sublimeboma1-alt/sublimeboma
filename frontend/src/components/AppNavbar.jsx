@@ -41,9 +41,7 @@ const navSections = [
     label: 'Administration',
     icon: '⚙',
     items: [
-      { label: 'Etablissement', href: '#etablissement' },
-      { label: 'Utilisateurs', href: '#utilisateurs' },
-      { label: 'Parametres', href: '#parametres' },
+      { label: 'Reglements scolaires', href: '#regularisations' },
       { label: 'Quitter', action: 'session.logout', isDanger: true },
     ],
   },

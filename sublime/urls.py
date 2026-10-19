@@ -28,6 +28,7 @@ urlpatterns = [
     path('frais_scolaires/', include('sub_app.frais_scolaires.urls')),
     path('depense/', include('sub_app.depense.urls')),  
     path('repartition/', include('sub_app.repartition.urls')),
+    path('regularisations/', include('sub_app.regularisations.urls')),
 ]
 # Servir les fichiers téléversés depuis le dossier local media/.
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

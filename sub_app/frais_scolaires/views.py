@@ -320,6 +320,14 @@ def dossiers_queryset(request):
     return frais, year
 
 
+def regularisations_admin_par_eleve(year, eleve_ids=None):
+    if not year or not year.est_active:
+        return {}
+    from sub_app.regularisations.models import Regularisation
+    queryset = Regularisation.objects.filter(annee_scolaire=year, statut=Regularisation.VALIDE)
+    if eleve_ids is not None:
+        queryset = queryset.filter(eleve_id__in=eleve_ids)
+    return {row['eleve_id']: row['total'] for row in queryset.values('eleve_id').annotate(total=Sum('montant'))}
 def grouped_dossiers(request):
     frais, year = dossiers_queryset(request)
     groups = defaultdict(list)
@@ -335,7 +343,8 @@ def grouped_dossiers(request):
             eleves = eleves.filter(classe_id=jeton.classe_id)
         for eleve in eleves:
             groups.setdefault(eleve, [])
-    return [serialize_dossier(eleve, eleve_frais) for eleve, eleve_frais in groups.items()], year
+    regularisations = regularisations_admin_par_eleve(year, [eleve.id for eleve in groups.keys()])
+    return [serialize_dossier(eleve, eleve_frais, regularisations.get(eleve.id, Decimal('0'))) for eleve, eleve_frais in groups.items()], year
 
 
 def financial_filters(queryset, request, relation='eleve__', year_key=None):
@@ -466,7 +475,14 @@ def eleve_detail(request, eleve_id):
         request.finance_jeton,
         year,
     )
-    return JsonResponse(serialize_eleve_detail(eleve, list(frais), year))
+    regularisations = []
+    if year and year.est_active:
+        from sub_app.regularisations.models import Regularisation
+        regularisations = list(Regularisation.objects.filter(
+            eleve=eleve, annee_scolaire=year, statut=Regularisation.VALIDE
+        ).order_by('date_validation', 'id').values('id', 'montant', 'date_declaration', 'reference'))
+        regularisations = [{'id': item['id'], 'montant': str(item['montant']), 'date': item['date_declaration'].isoformat(), 'reference': item['reference']} for item in regularisations]
+    return JsonResponse(serialize_eleve_detail(eleve, list(frais), year, regularisations))
 
 @login_required
 @finance_jeton_required
@@ -480,6 +496,19 @@ def paiements(request):
                 frais_id = data.get('frais_id')
                 if not scope_frais(FraisScolaire.objects.filter(id=frais_id), request.finance_jeton).exists():
                     return JsonResponse({'detail': 'Ce frais est hors du perimetre de votre jeton.'}, status=403)
+                target_fee = FraisScolaire.objects.select_related('annee_scolaire').filter(id=frais_id).first()
+                if target_fee and target_fee.eleve_id and target_fee.annee_scolaire.est_active:
+                    from sub_app.regularisations.models import Regularisation
+                    student_fees = FraisScolaire.objects.filter(eleve_id=target_fee.eleve_id, annee_scolaire=target_fee.annee_scolaire)
+                    expected = student_fees.aggregate(total=Sum('montant_total'))['total'] or Decimal('0')
+                    received = Paiement.objects.filter(frais__in=student_fees, statut_id='valide').aggregate(total=Sum('montant_paye'))['total'] or Decimal('0')
+                    approved = Regularisation.objects.filter(eleve_id=target_fee.eleve_id, annee_scolaire=target_fee.annee_scolaire, statut=Regularisation.VALIDE).aggregate(total=Sum('montant'))['total'] or Decimal('0')
+                    try:
+                        requested = Decimal(str(data.get('montant_paye', '0')))
+                    except Exception:
+                        requested = Decimal('0')
+                    if requested > max(Decimal('0'), expected - received - approved):
+                        return JsonResponse({'detail': 'Le paiement depasse le solde annuel restant apres regularisations validees.'}, status=400)
                 paiement = clean_paiement_payload(data, request.user)
                 paiement.full_clean()
                 paiement.save()

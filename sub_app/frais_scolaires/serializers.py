@@ -21,9 +21,9 @@ def serialize_paiement(paiement):
     }
 
 
-def serialize_dossier(eleve, frais):
+def serialize_dossier(eleve, frais, regularisation_admin=Decimal('0')):
     total = sum((f.montant_total for f in frais), Decimal('0'))
-    paid = sum((f.total_paye for f in frais), Decimal('0'))
+    paid = sum((f.total_paye for f in frais), Decimal('0')) + Decimal(str(regularisation_admin))
     first_unpaid = next((f for f in frais if f.solde_restant > 0), None)
     classe = eleve.classe
     niveau = str(classe.niveau) if classe and classe.niveau else ''
@@ -41,7 +41,7 @@ def serialize_dossier(eleve, frais):
         'option': option,
         'total': float(total),
         'paid': float(paid),
-        'balance': float(total - paid),
+        'balance': float(max(Decimal('0'), total - paid)),
         'statut': 'paid' if total > 0 and paid >= total else 'late' if paid == 0 else 'partial',
         'masp': eleve.est_masp,
     }
@@ -62,9 +62,11 @@ def serialize_frais(frais):
     }
 
 
-def serialize_eleve_detail(eleve, frais, annee_scolaire=None):
+def serialize_eleve_detail(eleve, frais, annee_scolaire=None, regularisations_admin=None):
     total = sum((f.montant_total for f in frais), Decimal('0'))
-    paid = sum((f.total_paye for f in frais), Decimal('0'))
+    regularisations_admin = regularisations_admin or []
+    regularisations_admin_total = sum((Decimal(str(item['montant'])) for item in regularisations_admin), Decimal('0'))
+    paid = sum((f.total_paye for f in frais), Decimal('0')) + regularisations_admin_total
     classe = eleve.classe
     annee_scolaire = annee_scolaire or (frais[0].annee_scolaire if frais else eleve.annee_scolaire)
     trimestres = {}
@@ -84,9 +86,11 @@ def serialize_eleve_detail(eleve, frais, annee_scolaire=None):
         'option': str(classe.section) if classe and classe.niveau_id == 'humanite' and classe.section else '',
         'total': float(total),
         'paid': float(paid),
-        'balance': float(total - paid),
+        'balance': float(max(Decimal('0'), total - paid)),
         'statut': 'paid' if total > 0 and paid >= total else 'late' if paid == 0 else 'partial',
         'masp': eleve.est_masp,
+        'regularisations_admin_total': float(regularisations_admin_total),
+        'regularisations_admin': [{**item, 'montant': float(item['montant'])} for item in regularisations_admin],
         'annee_scolaire': str(annee_scolaire) if annee_scolaire else '',
         'annee_scolaire_id': annee_scolaire.id if annee_scolaire else None,
         'trimestres': [dict(value, total=float(value['total']), paid=float(value['paid']), balance=float(value['total'] - value['paid'])) for value in trimestres.values()],
