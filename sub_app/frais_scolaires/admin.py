@@ -1,5 +1,6 @@
 # admin.py
 from django.contrib import admin
+from django.contrib.admin.helpers import ActionForm
 from django import forms
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
@@ -9,6 +10,15 @@ from django.db.models import Sum
 from .models import AnneeScolaire, TarifFrais, FraisScolaire, Paiement, TypeFrais, ModePaiement, StatutPaiement, Trimestre, CodeJeton
 from sub_app.eleves.models import Classe, Eleve
 
+
+class PaiementActionForm(ActionForm):
+    """Champ utilisé par les actions de masse de l'administration des paiements."""
+
+    date_paiement_groupee = forms.DateField(
+        required=False,
+        label="Nouvelle date de paiement",
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
 @admin.register(AnneeScolaire)
 class AnneeScolaireAdmin(admin.ModelAdmin):
     list_display = ['annee', 'date_debut', 'date_fin', 'est_active', 'statut']
@@ -340,8 +350,10 @@ class PaiementAdmin(admin.ModelAdmin):
     search_fields = ['reference', 'eleve__nom', 'eleve__prenom', 'eleve__matricule', 'description']
     readonly_fields = ['reference', 'date_creation', 'date_modification']
     list_select_related = ['eleve', 'frais', 'agent']
+    list_editable = ['date_paiement']
     list_per_page = 30
     date_hierarchy = 'date_paiement'
+    action_form = PaiementActionForm
     
     fieldsets = (
         ('Information du reçu', {
@@ -387,7 +399,22 @@ class PaiementAdmin(admin.ModelAdmin):
         return obj.statut
     statut_badge.short_description = "Statut"
     
-    actions = ['valider_paiements', 'annuler_paiements']
+    actions = ['modifier_date_paiement', 'valider_paiements', 'annuler_paiements']
+
+    def modifier_date_paiement(self, request, queryset):
+        form = self.action_form(request.POST)
+        if not form.is_valid() or not form.cleaned_data['date_paiement_groupee']:
+            self.message_user(
+                request,
+                "Choisissez une nouvelle date avant d'appliquer la modification groupée.",
+                level='ERROR',
+            )
+            return
+
+        nouvelle_date = form.cleaned_data['date_paiement_groupee']
+        updated = queryset.update(date_paiement=nouvelle_date)
+        self.message_user(request, f"{updated} paiement(s) mis à jour avec la date du {nouvelle_date:%d/%m/%Y}.")
+    modifier_date_paiement.short_description = "Modifier la date des paiements sélectionnés"
     
     def valider_paiements(self, request, queryset):
         updated = queryset.update(statut_id='valide')
